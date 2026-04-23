@@ -1,18 +1,20 @@
 ---
 title: "Group1"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 date: "2026-04-16"
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width  = 12,
+  fig.height = 5)
 ```
 
 ## Introduction
-
-```{r cars}
-
-```
 
 ## Literature Review
 
@@ -86,7 +88,7 @@ cols <- c("gone_no_food", "gone_no_health", "gone_no_income", "trust_neighborhoo
 sub_data <- data %>% select(all_of(cols))
 ```
 
-Missing Data Plot
+### Missing Data Plot
 ```{r echo=FALSE, warning=FALSE}
 na_counts <- colSums(is.na(sub_data[, cols]))
 
@@ -105,7 +107,7 @@ predictors <- setdiff(cols, "life.quality")
 
 sub_data <- na.omit(sub_data)
 sub_data$life.quality <- as.numeric(sub_data$life.quality)
-sub_data[, predictors] <- lapply(sub_data[, predictors], as.factor)
+sub_data[, predictors] <- lapply(sub_data[, predictors], as.numeric)
 ```
 
 ## Methodology
@@ -113,39 +115,159 @@ sub_data[, predictors] <- lapply(sub_data[, predictors], as.factor)
 ### Assumptions
 
 ### Testing and Validation
-
+#### Unpruned and Pruned trees comparison
 ```{r echo=FALSE, warning=FALSE}
-library(randomForest)
+library(rpart)
+library(rpart.plot)
 
-set.seed(42)
 train_idx <- sample(nrow(sub_data), 0.8 * nrow(sub_data))
 train <- sub_data[train_idx, ]
 test  <- sub_data[-train_idx, ]
 
-rf_model <- randomForest(
-  x = train[, predictors],
-  y = train[["life.quality"]],
-  ntree = 500,
-  importance = TRUE,
-  na.action = na.omit
+tree_unpruned <- rpart(
+  life.quality ~ .,
+  data      = train[, c(predictors, "life.quality")],
+  method    = "anova",       # use "class" for classification
+  control   = rpart.control(cp = 0, minsplit = 2, minbucket = 1)
 )
+best_cp <- tree_unpruned$cptable[
+  which.min(tree_unpruned$cptable[, "xerror"]), "CP"
+]
 
-# Predict on test set
-preds <- predict(rf_model, newdata = test[, predictors])
+tree_pruned <- prune(tree_unpruned, cp = best_cp)
+# ── 4. Compare on test set
+pred_unp  <- predict(tree_unpruned, test[, predictors])
+pred_prun <- predict(tree_pruned,   test[, predictors])
+rmse <- function(actual, pred) sqrt(mean((actual - pred)^2))
 ```
 
+#### K-Folds cross validation
+```{r echo=FALSE, warning=FALSE}
+library(caret)
+
+set.seed(123)
+# ── 1. Set up k-fold CV (k=10 is standard)
+ctrl <- trainControl(method = "cv", number = 10)
+
+# ── 2. Train with CV
+cv_tree <- train(
+  life.quality ~ .,
+  data      = train[, c(predictors, "life.quality")],
+  method    = "rpart",
+  trControl = ctrl,
+  tuneLength = 10        
+)
+
+plot(cv_tree)            
+
+pred_cv <- predict(cv_tree, newdata = test[, predictors])
+
+```
+
+#### Bagging validation:
+```{r echo=FALSE, warning=FALSE}
+library(rpart)
+
+set.seed(123)
+n_bags  <- 10          # number of bootstrap samples
+n_train <- nrow(train)
+
+# Store each tree
+trees <- vector("list", n_bags)
+
+for (i in 1:n_bags) {
+  # Bootstrap sample
+  idx       <- sample(1:n_train, n_train, replace = TRUE)
+  boot_data <- train[idx, c(predictors, "life.quality")]
+  
+  # Fit tree on bootstrap sample
+  trees[[i]] <- rpart(
+    life.quality ~ .,
+    data    = boot_data,
+    method  = "anova",
+    control = rpart.control(cp = 0.01)
+  )
+}
+
+preds_matrix <- sapply(trees, function(tree) {
+  predict(tree, newdata = test[, predictors])
+})
+
+# Average predictions across all trees (this is bagging)
+pred_bag <- rowMeans(preds_matrix)
+
+par(mfrow = c(2, 2))   # show 6 trees
+for (i in 1:2) {
+  rpart.plot(trees[[i]],
+             main = paste("Bootstrap Tree", i),
+             cex  = 0.6,
+             type = 2)
+}
+par(mfrow = c(1, 1))
+```
+Where we try to observe the different decision trees formed by using bootstrap samples of the dataset provided for our interested features.
 ## Result Analysis
+
+### Feature Importance observed through K-folds validation where the number of folds = 10
+```{r echo=FALSE, warning=FALSE}
+plot(varImp(cv_tree),
+     main = "Feature Importance - 10-Fold cross validation Tree",
+     top  = 10)  
+```
+
+### The goodness of fit ($R^{2}$) for each model and the root mean squared error for each model
+```{r echo=FALSE, warning=FALSE}
+r2 <- function(actual, pred) {
+  ss_res <- sum((actual - pred)^2)
+  ss_tot <- sum((actual - mean(actual))^2)
+  1 - (ss_res / ss_tot)
+}
+
+results <- data.frame(
+  Model = c("Unpruned Tree", "Pruned Tree", "CV Tree", "Bagging"),
+  RMSE  = round(c(
+    rmse(test$life.quality, pred_unp),
+    rmse(test$life.quality, pred_prun),
+    rmse(test$life.quality, pred_cv),
+    rmse(test$life.quality, pred_bag)
+  ), 4),
+  R2 = round(c(
+    r2(test$life.quality, pred_unp),
+    r2(test$life.quality, pred_prun),
+    r2(test$life.quality, pred_cv),
+    r2(test$life.quality, pred_bag)
+  ), 4)
+)
+
+# Sort by RMSE ascending (best first)
+results <- results[order(results$RMSE), ]
+
+print(results)
+```
+
+### Plotting goodness of fit for each feature $R^{2}$ used in the decision tree.
+```{r echo=FALSE, warning=FALSE}
+# R² per feature = correlation² between feature and life.quality
+feature_r2 <- sapply(predictors, function(var) {
+  cor(as.numeric(test[[var]]), test$life.quality, use = "complete.obs")^2
+})
+
+# Convert to data frame
+feature_r2_df <- data.frame(
+  Variable = names(feature_r2),
+  R2       = round(feature_r2, 4)
+) |> arrange(desc(R2))
+
+ggplot(feature_r2_df, aes(x = reorder(Variable, R2), y = R2)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(title = "R² per Feature vs Life Quality",
+       x     = "Variable",
+       y     = "R²") +
+  theme_minimal()
+```
 
 ## Limitations
 
 ## References
 
-
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

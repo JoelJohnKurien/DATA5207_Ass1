@@ -8,17 +8,139 @@ date: "2026-04-16"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+## Introduction
 
 ```{r cars}
-summary(cars)
+
 ```
 
-## Including Plots
+## Literature Review
+
+## Theory
+
+### Hypothesis
+
+## Exploratory Data Analysis
+```{r echo=FALSE, warning=FALSE}
+library(tidyverse)
+library(psych)
+library(ggpubr)
+
+data <- read.csv("Data/wvs_data.csv")
+```
+
+```{r echo=FALSE, warning=FALSE}
+data <- data %>%
+  dplyr::mutate(happiness = dplyr::recode(V10, 
+                                   '1' = 4,
+                                   '2' = 3,
+                                   '3' = 2,
+                                   '4' = 1, 
+                                   '-2' = NULL),
+         
+         health = dplyr::recode(V11,
+                                '1' = 5, 
+                                '2' = 4, 
+                                '3' = 3,
+                                '4' = 2,
+                                '5' = 1, 
+                                '-2' = NULL),
+         
+         finances = dplyr::recode(V59, 
+                                  '-2' = NULL,
+                                  .default = V59),
+         
+         satisfaction = dplyr::recode(V23, 
+                                  '-2' = NULL,
+                                  .default = V23),
+         
+         freedom = dplyr::recode(V55, 
+                                  '-2' = NULL,
+                                  .default = V55),
+         gone_no_food = dplyr::recode(V188,
+                                      '-2' = NULL,
+                                      .default = V188),
+         gone_no_health = dplyr::recode(V190,
+                                        '-2' = NULL,
+                                        .default = V190),
+         gone_no_income = dplyr::recode(V191,
+                                        '-2' = NULL,
+                                        .default = V191),
+         trust_neighborhood = dplyr::recode(V103,
+                                            '-2' = NULL,
+                                            .default = V103),
+         social_class = dplyr::recode(V236,
+                                      '-2' = NULL,
+                                      .default = V236))
+
+fa.fit <- fa(data[,c("happiness",
+                         "health",
+                         "finances", 
+                         "satisfaction",
+                         "freedom")], 
+             nfactors=1)
+
+data$life.quality <- as.numeric(fa.fit$scores)
+
+cols <- c("gone_no_food", "gone_no_health", "gone_no_income", "trust_neighborhood", "social_class", "life.quality")
+sub_data <- data %>% select(all_of(cols))
+```
+
+Missing Data Plot
+```{r echo=FALSE, warning=FALSE}
+na_counts <- colSums(is.na(sub_data[, cols]))
+
+barplot(na_counts,
+        main = "Missing Values per Column",
+        xlab = "Column",
+        ylab = "Count of NAs",
+        col = "steelblue",
+        las = 2)  # rotate x labels
+```
+
+### Data Cleaning
+```{r echo=FALSE, warning=FALSE}
+sub_data <- sub_data[!is.na(sub_data$life.quality), ]
+predictors <- setdiff(cols, "life.quality")
+
+sub_data <- na.omit(sub_data)
+sub_data$life.quality <- as.numeric(sub_data$life.quality)
+sub_data[, predictors] <- lapply(sub_data[, predictors], as.factor)
+```
+
+## Methodology
+
+### Assumptions
+
+### Testing and Validation
+
+```{r echo=FALSE, warning=FALSE}
+library(randomForest)
+
+set.seed(42)
+train_idx <- sample(nrow(sub_data), 0.8 * nrow(sub_data))
+train <- sub_data[train_idx, ]
+test  <- sub_data[-train_idx, ]
+
+rf_model <- randomForest(
+  x = train[, predictors],
+  y = train[["life.quality"]],
+  ntree = 500,
+  importance = TRUE,
+  na.action = na.omit
+)
+
+# Predict on test set
+preds <- predict(rf_model, newdata = test[, predictors])
+```
+
+## Result Analysis
+
+## Limitations
+
+## References
+
+
 
 You can also embed plots, for example:
 

@@ -14,13 +14,68 @@ knitr::opts_chunk$set(echo = TRUE,
   fig.height = 5)
 ```
 
-## Introduction
+# Introduction
 
-## Literature Review
+Quality of life refers to how well an individual perceives their life to be going. Over the past fifty years, it has become a central focus in social science research, driven by growing recognition that economic output alone poorly captures human wellbeing. Governments worldwide increasingly evaluate policy based on life outcomes rather than income alone, including Australia through its Measuring What Matters framework.
+While Australia consistently ranks highly in international wellbeing comparisons, meaningful inequality in quality of life persists within the population. This report uses data from the 2018 Australian World Values Survey to explore this variation. Five survey items measuring happiness, health, financial satisfaction, life satisfaction, and freedom of choice are combined into a composite measure using factor analysis. Key predictors examined include material deprivation, subjective social class, and neighbourhood trust. The central hypothesis is that lower deprivation, higher social class, and stronger community trust each predict significantly better quality of life.
+
+# Literature Review
+
+To understand the factors that affect the quality of life of a person, it is important to refer core literatures that help build a concept related to the various topics and factors that relate to a person's qualit of life. Early social science treated quality of life as roughly equivalent to income per capita. This view was challenged by Easterlin (1974), whose paradox demonstrated that average happiness rises only modestly as national income grows. Subsequent scholars consolidated the field: Diener et al. (1999) decomposed subjective wellbeing into positive affect, negative affect, and life satisfaction, while Ryff (1989) emphasised structural dimensions such as autonomy and personal growth. The WHO's WHOQOL project further established quality of life as a multidimensional latent construct requiring indirect measurement across physical, psychological, social, and environmental domains (WHOQOL Group, 1995; Veenhoven, 1996).
+
+Some researchers argued that access to services and material deprivation are some factors affecting quality of life. This idea was supported by Townsend (1979), who argued that poverty is not about falling below an absolute income threshold, but about exclusion from the customary activities and comforts of one's society. Mack and Lansley (1985) and Nolan and Whelan (1996) refined this approach, showing that direct deprivation measures identify more disadvantaged populations than income measures alone. Three specific deprivations are examined here. Food insecurity is consistently associated with poorer mental health and reduced life satisfaction even after controlling for income (Gundersen & Ziliak, 2015), and remains non-negligible in Australia (Foodbank Australia, 2022). Going without needed medical treatment captures hardship even within universal healthcare systems, where out-of-pocket costs for specialists and medications lead many to forgo care — affecting around a fifth of Australian households despite Medicare (AIHW, 2020). Going without a cash income reflects acute liquidity crises and independently predicts chronic stress and reduced life satisfaction (Gallo et al., 2006). Crucially, these deprivation measures are conceptually distinct from income, capturing dimensions of hardship that income bands alone cannot.
+
+There are also cultural and personal outlook on society and social standings that affect a person's evaluation of their quality of life. The Whitehall studies showed that health and wellbeing improve monotonically along occupational hierarchies, even where material hardship is absent — a pattern Marmot (2004) termed the status syndrome. Deaton (2008) and Kahneman and Deaton (2010) similarly found that life evaluation continues rising well into upper income levels. Subjective social class — where individuals locate themselves in the hierarchy — predicts wellbeing above and beyond objective income, reflecting both its role as a summary of economic and social resources and its independent psychosocial effects (Singh-Manoux et al., 2005; Adler et al., 2000). Australian research confirms that distinct class clusters exist domestically and differ systematically in their social and economic resources (Sheppard & Biddle, 2017). Putnam (2000) and Helliwell and Putnam (2004) demonstrated that social trust and civic participation predict life satisfaction as strongly as income. Neighbourhood trust in particular shapes perceived safety, social support, and mental health (Kawachi et al., 1999), with Australian evidence linking lower neighbourhood trust to reduced quality of life (Markus, 2020).
 
 ## Theory
+Quality of life in wealth societies like Australia is not determined by national prosperity alone, but by three layered and partially independent dimensions of individual experience: what people have access to related to material security and social services, where they view their social standings in society and the trust they have in their local community and society. Deprivation in any one of these dimensions independently undermines the wellbeing, and cumulative disadvantage across the dimensions compound the effect.
 
-### Hypothesis
+## Hypotheses
+
+The five predictors examined in this report are drawn directly from the three
+traditions reviewed above. Our hypotheses are as follows.
+
+- H1 (Material deprivation): Respondents who rarely or never experience going without food (V188), medical treatment (V190), or cash income (V191) will report higher quality of life than those who frequently do, with each deprivation carrying an independent effect as each reflects a conceptually distinct hardship.
+
+- H2 (Socioeconomic position): Respondents who place themselves higher in the Australian class structure (V236) will report higher quality of life, reflecting the psychosocial effects of perceived status and social position rather than acute material hardship.
+
+- H3 (Social capital): Respondents who express greater trust in their neighbours (V103) will report higher quality of life, consistent with Putnam's social capital framework and evidence linking neighbourhood trust to wellbeing.
+
+# Data and Methods
+
+## Data
+
+This analysis draws on the 2018 Australian World Values Survey (WVS Wave 7),
+which surveyed 1,813 Australians via online and hard-copy questionnaires. The
+survey covers a broad array of social attitudes, values, and life circumstances.
+Data were obtained from the Australian Data Archive.
+
+### Dependent variable
+Quality of life is operationalised as a latent factor score derived from a
+single-factor factor analysis of five items: self-reported happiness (V10),
+health (V11), freedom of choice (V55), life satisfaction (V23), and financial
+satisfaction (V59). Responses are recoded so that higher scores indicate better
+outcomes, and missing values (coded $-2$) are set to missing before analysis.
+
+### Predictor variables
+Each predictor is cleaned by replacing the $-2$ (no answer) code with missing values. Two variables - social class (V236) and trust in neighbours (V103) are reverse-coded so that higher values uniformly represent better outcomes, consistent with the three deprivation indicators.
+
+- **Food security** (`food_secure`, V188): How often the respondent has gone
+   without enough food to eat (1 = Often, 4 = Never). Higher values = greater
+   food security.
+- **Medical access** (`medical_access`, V190): How often the respondent has
+   gone without medicine or medical treatment they needed (1 = Often,
+   4 = Never). Higher values = better access.
+- **Income security** (`income_security`, V191): How often the respondent has
+   gone without a cash income (1 = Often, 4 = Never). Higher values = greater
+   income stability.
+- **Social class** (`social_class`, V236): Self-identified class position.
+   Originally coded 1 = Upper class to 5 = Lower class; reverse-coded so
+   5 = Upper class, 1 = Lower class.
+- **Social trust** (`social_trust`, V103): Trust in people in the
+   neighbourhood. Originally coded 1 = Trust completely to 4 = Do not trust at
+   all; reverse-coded so 4 = Trust completely.
+
 
 ## Exploratory Data Analysis
 ```{r echo=FALSE, warning=FALSE}
@@ -269,5 +324,142 @@ ggplot(feature_r2_df, aes(x = reorder(Variable, R2), y = R2)) +
 
 ## Limitations
 
-## References
+# References
+
+Adler, N. E., Epel, E. S., Castellazzo, G., & Ickovics, J. R. (2000).
+Relationship of subjective and objective social status with psychological
+and physiological functioning in healthy white women. *Health Psychology*,
+19(6), 586--592. <https://doi.org/10.1037/0278-6133.19.6.586>
+
+Australian Institute of Health and Welfare. (2020). *Australia's health
+2020: In brief* (Cat. no. AUS 232). Canberra: AIHW.
+<https://www.aihw.gov.au/reports/australias-health/australias-health-2020-in-brief>
+
+Deaton, A. (2008). Income, health, and well-being around the world:
+Evidence from the Gallup World Poll. *Journal of Economic Perspectives*,
+22(2), 53--72. <https://doi.org/10.1257/jep.22.2.53>
+
+Diener, E., Suh, E. M., Lucas, R. E., & Smith, H. L. (1999). Subjective
+well-being: Three decades of progress. *Psychological Bulletin*, 125(2),
+276--302. <https://doi.org/10.1037/0033-2909.125.2.276>
+
+Easterlin, R. A. (1974). Does economic growth improve the human lot? Some
+empirical evidence. In P. A. David & M. W. Reder (Eds.), *Nations and
+Households in Economic Growth: Essays in Honor of Moses Abramovitz*
+(pp. 89--125). New York: Academic Press.
+<https://doi.org/10.1016/B978-0-12-205050-3.50008-7>
+
+Foodbank Australia. (2022). *Foodbank Hunger Report 2022*. North Ryde,
+NSW: Foodbank Australia.
+<https://reports.foodbank.org.au/foodbank-hunger-report-2022/>
+
+Gallo, W. T., Bradley, E. H., Dubin, J. A., Jones, R. N., Falba, T. A.,
+Teng, H.-M., & Kasl, S. V. (2006). The persistence of depressive symptoms
+in older workers who experience involuntary job loss: Results from the
+Health and Retirement Survey. *Journals of Gerontology: Series B*, 61(4),
+S221--S228. <https://doi.org/10.1093/geronb/61.4.S221>
+
+Gundersen, C., & Ziliak, J. P. (2015). Food insecurity and health
+outcomes. *Health Affairs*, 34(11), 1830--1839.
+<https://doi.org/10.1377/hlthaff.2015.0645>
+
+Helliwell, J. F., & Putnam, R. D. (2004). The social context of
+well-being. *Philosophical Transactions of the Royal Society B*, 359(1449),
+1435--1446. <https://doi.org/10.1098/rstb.2004.1522>
+
+Kahneman, D., & Deaton, A. (2010). High income improves evaluation of life
+but not emotional well-being. *Proceedings of the National Academy of
+Sciences*, 107(38), 16489--16493.
+<https://doi.org/10.1073/pnas.1011492107>
+
+Kawachi, I., Kennedy, B. P., & Glass, R. (1999). Social capital and
+self-rated health: A contextual analysis. *American Journal of Public
+Health*, 89(8), 1187--1193. <https://doi.org/10.2105/AJPH.89.8.1187>
+
+Mack, J., & Lansley, S. (1985). *Poor Britain*. London: George Allen &
+Unwin. <https://www.poverty.ac.uk/free-resources-books/poor-britain>
+
+Markus, A. (2020). *Mapping Social Cohesion: The Scanlon Foundation
+surveys 2020*. Caulfield East, VIC: Scanlon Foundation Research Institute.
+<https://scanloninstitute.org.au/mapping-social-cohesion-2020>
+
+Marmot, M. (2004). *The Status Syndrome: How Social Standing Affects Our
+Health and Longevity*. New York: Times Books / Henry Holt.
+<https://us.macmillan.com/books/9780805078541/thestatussyndrome>
+
+Nolan, B., & Whelan, C. T. (1996). *Resources, Deprivation and Poverty*.
+Oxford: Clarendon Press.
+<https://global.oup.com/academic/product/resources-deprivation-and-poverty-9780198287858>
+
+OECD. (2011). *How's Life? Measuring Well-being*. Paris: OECD Publishing.
+<https://doi.org/10.1787/9789264121164-en>
+
+Putnam, R. D. (2000). *Bowling Alone: The Collapse and Revival of American
+Community*. New York: Simon & Schuster.
+<https://www.simonandschuster.com/books/Bowling-Alone/Robert-D-Putnam/9780743203043>
+
+Rothstein, B., & Uslaner, E. M. (2005). All for all: Equality, corruption,
+and social trust. *World Politics*, 58(1), 41--72.
+<https://doi.org/10.1353/wp.2006.0022>
+
+Ryff, C. D. (1989). Happiness is everything, or is it? Explorations on the
+meaning of psychological well-being. *Journal of Personality and Social
+Psychology*, 57(6), 1069--1081.
+<https://doi.org/10.1037/0022-3514.57.6.1069>
+
+Saunders, P., & Wong, M. (2012). *Promoting Inclusion and Combating
+Deprivation: Recent Changes in Social Disadvantage in Australia*. Sydney:
+Social Policy Research Centre, UNSW.
+<https://www.unsw.edu.au/arts-design-architecture/our-research/research-centres-institutes/social-policy-research-centre/our-projects/promoting-inclusion-and-combating-deprivation>
+
+Schoen, C., Osborn, R., Squires, D., & Doty, M. M. (2013). Access,
+affordability, and insurance complexity are often worse in the United
+States compared to ten other countries. *Health Affairs*, 32(12),
+2205--2215. <https://doi.org/10.1377/hlthaff.2013.0879>
+
+Sen, A. (1999). *Development as Freedom*. Oxford: Oxford University Press.
+<https://global.oup.com/academic/product/development-as-freedom-9780198297581>
+
+Sheppard, J., & Biddle, N. (2017). Class, capital, and identity in
+Australian society. *Australian Journal of Political Science*, 52(4),
+500--516. <https://doi.org/10.1080/10361146.2017.1364342>
+
+Singh-Manoux, A., Marmot, M. G., & Adler, N. E. (2005). Does subjective
+social status predict health and change in health status better than
+objective status? *Psychosomatic Medicine*, 67(6), 855--861.
+<https://doi.org/10.1097/01.psy.0000188434.52941.a0>
+
+Stiglitz, J. E., Sen, A., & Fitoussi, J.-P. (2009). *Report by the
+Commission on the Measurement of Economic Performance and Social Progress*.
+Paris: Commission on the Measurement of Economic Performance and Social
+Progress.
+<https://ec.europa.eu/eurostat/documents/8131721/8131772/Stiglitz-Sen-Fitoussi-Commission-report.pdf>
+
+Subramanian, S. V., Kim, D. J., & Kawachi, I. (2002). Social trust and
+self-rated health in US communities: A multilevel analysis. *Journal of
+Urban Health*, 79(4 Suppl 1), S21--S34.
+<https://doi.org/10.1093/jurban/79.suppl_1.S21>
+
+Townsend, P. (1979). *Poverty in the United Kingdom: A Survey of Household
+Resources and Standards of Living*. Harmondsworth: Penguin Books.
+<https://www.poverty.ac.uk/free-resources-books/poverty-united-kingdom>
+
+Veenhoven, R. (1996). Developments in satisfaction research. *Social
+Indicators Research*, 37(1), 1--46.
+<https://doi.org/10.1007/BF00300268>
+
+WHOQOL Group. (1995). The World Health Organization Quality of Life
+assessment (WHOQOL): Position paper from the World Health Organization.
+*Social Science & Medicine*, 41(10), 1403--1409.
+<https://doi.org/10.1016/0277-9536(95)00112-K>
+
+Wilkins, R., Vera-Toscano, E., Botha, F., Wooden, M., & Trinh, T.-A.
+(2022). *The Household, Income and Labour Dynamics in Australia Survey:
+Selected Findings from Waves 1 to 20*. Melbourne: Melbourne Institute:
+Applied Economic & Social Research, University of Melbourne.
+<https://melbourneinstitute.unimelb.edu.au/hilda/publications/hilda-statistical-reports>
+
+Wilkinson, R., & Pickett, K. (2009). *The Spirit Level: Why More Equal
+Societies Almost Always Do Better*. London: Allen Lane.
+<https://www.penguin.co.uk/books/55130/the-spirit-level-by-pickett-kate-and-richard-wilkinson/9780241954294>
 

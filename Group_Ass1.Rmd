@@ -370,9 +370,10 @@ cor_mat
 corrplot(cor_mat, method = "color", addCoef.col = "black", tl.col = "black", tl.srt = 45, title = "Correlation Matrix of QoL Predictors", mar = c(0, 0, 2, 0))
 ```
 
-#### Observations
-- Positive correlation between health, income and food although the relationship itself is quite weak (score of 0.29 with food and score of 0.36 with both health and food).
-- All three variables have positive correlations score with each other, indicating that these factors affect each other.
+#### Discussion
+
+- Positive correlation between health, income and food although the relationship itself is quite weak.
+- All three variables have mildly positive relationships with each other, indicating that these factors affect each other.
 - Very weak positive relationship between trust in neighbourhoods and social class. 
 
 ### Skewness Checks
@@ -396,6 +397,7 @@ train[, c(predictors, "life.quality")] |>
 ```
 
 #### Discussion
+
 - For variables `gone_no_food`, `gone_no_health`, `gone_no_income`, majority of survey responses sit at highest possible score. This also confirms left-skew distribution for `life.quality`. 
 - Very few respondents indicated poor quality of life factors (not enough food, bad health and low income). 
 - Indicates that ceiling effect might be occurring, a measurement limitation that is occurring in the survey due to a low upper limit.
@@ -448,6 +450,7 @@ ggplot(results_overfit_check_long, aes(x=Model, y=RMSE, fill=Set)) + geom_bar(st
 ```
 
 #### Discussion
+
 - Tree trained with cross-validation saw the smallest gap in RMSE, indicating this model strongly generalises on unseen data.
 - Unpruned Tree model had the largest gap between train and test RMSE, indicating this model is more prone to overfitting on unseen data.
 - Both pruned and unpruned tree saw the same RMSE on training data, however the pruned tree was less error-prone on the test data, showing the effectiveness of pruning the decision tree. 
@@ -485,6 +488,7 @@ preprune_df <- preprune_df[order(preprune_df$RMSE), ]
 print(preprune_df)
 ```
 #### Discussion
+
 - Pre-pruning reveals that the decision tree naturally stops growth, produces 7-8 leaves regardless of what is specified as the maximum depth of the tree. 
 - Consistently low $R^2$ value, ranging from ~0.03 to ~0.05. Ties back into the point raised about ceiling effects
 - All variants reveal similar RMSE values
@@ -515,6 +519,7 @@ cat(sprintf("SD of Residuals: %.4f", sd(prune_residuals)))
 ```
 
 #### Discussion
+
 - Residual vs fitted plot displays no systemic bias, points follow shape of vertical columns but this is expected from survey data and decision tree nature (fixed leaf nodes).
 - Residual distribution shows a very close bell-shape, mostly centered near zero. 
 - QQ Plot confirms near-normality of data, points follow diagonal very closely in the middle and minimal deviation at both tails of the graph
@@ -569,6 +574,7 @@ ggplot(test_retest_df_long, aes(x = reorder(Variable, Importance), y = Importanc
 ```
 
 #### Discussion
+
 - Strong consistency in rankings between the two splits
 - `gone_no_health` the most dominant predictor (scoring 100 in both splits)
 - `gone_no_income` and `gone_no_food` demonstrated strong stability in both splits, minimal score deviation from first split to second split (~1 point difference for `gone_no_income` and ~2 point difference for `gone_no_food`)

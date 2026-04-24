@@ -1,8 +1,7 @@
 ---
 title: "Group1"
 output:
-  pdf_document: default
-  html_document: default
+  bookdown::pdf_document2
 date: "2026-04-16"
 ---
 
@@ -77,10 +76,6 @@ Each predictor is cleaned by replacing the $-2$ (no answer) code with missing va
    all; reverse-coded so 4 = Trust completely.
 
 
-## Dataset
-
-The dataset is sourced from the World Values Survey hosted by the Social Research Centre at ANU. The questionnaire contains 290 questions that covers various aspects of a participant lifestyle factors. There is a codebook assigning questions to the class labels of this dataset which also describes the distributions of their corresponding responses. 
-
 ## Exploratory Data Analysis
 ```{r echo=FALSE, warning=FALSE}
 library(tidyverse)
@@ -92,13 +87,13 @@ library(rpart.plot)
 library(caret)
 library(naniar)
 library(tidyr)
+library(gt)
+library(broom)
 
 data <- read.csv("Data/wvs_data.csv")
 ```
 
-We used a factor analysis to extract the quality of life from 5 main attributes: Happiness, health, financial status, life satisfaction, and freedom. 
-
-The histogram below shows the distribution of quality of life within the sample. We can see that there is a negative skew present in our dataset, the non-normal distribution present in the dataset made 
+The descriptive statistics of the quality of life score show that the average person is unhappy (Score < 0), this is supported by the histogram and at Figure 1 showing the distribution has a negative skew present in the dataset. Although the dataset is large enough for the Central Limits theorem to be applied (n = 1813), it is difficult to capture a linear relationship of the predictor variables and quality of life, and hence we preferred to model quality of life by capturing non-linear relationships.
 
 ```{r echo=FALSE, warning=FALSE}
 data <- data %>%
@@ -156,42 +151,27 @@ data$life.quality <- as.numeric(fa.fit$scores)
 cols <- c("gone_no_food", "gone_no_health", "gone_no_income", "trust_neighborhood", "social_class", "life.quality")
 
 sub_data <- data %>% select(all_of(cols))
+tidy(summary(data$life.quality)) %>% gt() %>% tab_header(title = "Descriptive Statistics of QoL")
 ```
 
 
-```{r qol_dist, fig.pos = "H", echo=FALSE, warning=FALSE, fig.cap= "Histogram showing the distribution of Life Quality, the distribution has a negative skew"}
+```{r echo=FALSE, warning=FALSE, fig.cap= "Histogram showing the distribution of Life Quality, the distribution has a negative skew"}
 ggplot(data, aes(life.quality)) + 
   geom_histogram(fill = 'black', bins = 30) + 
-  theme_bw()
+  theme_bw() + ggtitle("Distribution of Quality of Life")
 ```
 
+The dataset with the desired attributes contains around 1.5% missing entries as can be seen in Figure 2. To reduce the model complexity of our decision tree and hence reduce the chance of overfitting in the decision tree, we removed NULL values during the data cleaning process.
 
-```{r echo=FALSE, warning=FALSE}
-```
-The dataset with the desired attributes contains around 1.5% missing entries. As can be seen in the plot below. 
-
-```{r, echo = FALSE, warning = FALSE}
+```{r fig.cap = "Visualisation of missing data in the dataset, there are only a small amount of missing entries present in the dataset.", echo = FALSE, warning = FALSE}
 vis_miss(sub_data)
 ```
-For the purposes of our analysis, we selected questions that we believed aligned most with quality of life outcomes. Our selected questions were:
 
-- V188 = In the last 12 months, how often with your family have you gone without food to eat?
+### Predictor Variables 
 
-- V189 = In the last 12 months, how often has your family felt unsafe from crime in your home?
+As all attributes in the dataset are categorical in nature, we investigated the relationship between the selected attributes with quality of lifestyle score using boxplots. From the boxplot in Figure 3, we see that the Quality of life improves as circumstances improve (plentiful access to food, feeling safe in your environment, cash in hand available). While first four boxplots (QoL vs Food - Gone without Cash Income) show a trend down, it's important to note that these were measured inversely. I.e. Larger = Better.
 
-- V190 = In the last 12 months, how often has your family gone without cash income?
-
-- V191 = In the last 12 months, how often has your family felt unsafe from crime in your home?
- 
-- V236 = People sometimes describe themselves as belonging to the working class, the middle class, or the upper, or lower class. Would you describe yourself as belonging to the…?
-
-As all attributes in the dataset are categorical in nature, we investigated the relationship between the selected attributes with quality of lifestyle score using boxplots. We can see a social gradients on quality of life- That is to say, as the circumstances in life improve, (I.e. Never going without food or income, higher neihgbourhood trust, and never going without medicine and higher social standing) the higher your the quality of life score is expected to be.
-
-From figure \ref{eda}, we can see that as
-
-- Quality of life improves as circumstances improve (plentiful access to food, feeling safe in your environment, cash in hand available). While first four boxplots (QoL vs Food - Gone without Cash Income) show a trend down, it's important to note that these were measured inversely. This means that in reality the trend is upwards instead of what's directly shown on the graph which is a downward trend.
-
-```{r eda, echo=FALSE, warning=FALSE}
+```{r echo=FALSE, warning=FALSE, fig.cap ="Boxplots of predictor variables against Quality of Life,  scores of safety and class are inverted I.e. 1 is highest"}
 
 factors = c("food", "class", "medicine", "safety", "cash")
 
@@ -216,23 +196,28 @@ working_class <- ggplot(data_factor, aes(x = class, y = life.quality))  + geom_b
 
 neighbourhood_safety <- ggplot(data_factor, aes(x = safety, y = life.quality))  + geom_boxplot() + theme_bw() + ggtitle("Safety in Neighbourhood") + scale_x_discrete("Safety") + scale_y_discrete("Life Quality")
 
-ggarrange(qol_vs_food, without_meds, without_cash, working_class, neighbourhood_safety)
+print(ggarrange(qol_vs_food, without_meds, without_cash, working_class, neighbourhood_safety))
+```
+
+```{r dist, fig.pos = "H", fig.cap = "Class Distribution of variables, there is a high amount of class imbalance in the dataset.", echo=FALSE, warning=FALSE}
+food_hist <- ggplot(data_factor, aes(x = food))  + geom_bar() + theme_bw() + ggtitle("Class Distribution of Times with Food") 
+
+med_hist <- ggplot(data_factor, aes(x = medicine))  + geom_bar() + theme_bw() + ggtitle("Class Distribution of Times with Medicine") 
+
+without_cash <- ggplot(data_factor, aes(x = cash))  + geom_bar() + theme_bw() + ggtitle("Class Distribution of Times without Cash Income") 
+
+working_class <- ggplot(data_factor, aes(x = class))  + geom_bar() + theme_bw() + ggtitle("Working Class Distribution") 
+
+neighbourhood_safety <- ggplot(data_factor, aes(x = safety))  + geom_bar() + theme_bw() + ggtitle("Neighborhood Safety Distribution") 
+
+print(ggarrange(food_hist, med_hist, without_cash, working_class, neighbourhood_safety))
 ```
 
 
-### Missing Data Plot
-```{r echo=FALSE, warning=FALSE}
-na_counts <- colSums(is.na(sub_data[, cols]))
+### Class Distributions 
 
-barplot(na_counts,
-        main = "Missing Values per Column",
-        xlab = "Column",
-        ylab = "Count of NAs",
-        col = "steelblue",
-        las = 2)  # rotate x labels
-```
+From Figure 4, we see that aside from neighbourhood safety, the class distributions are imbalanced, which could harm the validity of a decision tree-based approach.
 
-### Data Cleaning
 ```{r echo=FALSE, warning=FALSE}
 sub_data <- sub_data[!is.na(sub_data$life.quality), ]
 predictors <- setdiff(cols, "life.quality")
@@ -241,6 +226,8 @@ sub_data <- na.omit(sub_data)
 sub_data$life.quality <- as.numeric(sub_data$life.quality)
 sub_data[, predictors] <- lapply(sub_data[, predictors], as.numeric)
 ```
+
+
 
 ## Methodology
 

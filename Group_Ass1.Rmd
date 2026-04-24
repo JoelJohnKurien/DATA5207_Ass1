@@ -2,8 +2,20 @@
 title: "Group Project 1"
 author: "Group 26"
 output:
-  pdf_document: default
-  html_document: default
+  pdf_document:
+    toc: TRUE
+    toc_depth: 3
+    latex_engine: xelatex
+  html_document:
+    toc: no
+    df_print: paged
+header-includes:
+- \usepackage{caption}
+- \captionsetup[figure]{font=scriptsize}
+- \usepackage{sectsty}
+- \allsectionsfont{\color{ForestGreen}}
+mainfont: Arial
+urlcolor: blue
 date: "2026-04-16"
 ---
 
@@ -78,10 +90,6 @@ Each predictor is cleaned by replacing the $-2$ (no answer) code with missing va
    all; reverse-coded so 4 = Trust completely.
 
 
-## Dataset
-
-The dataset is sourced from the World Values Survey hosted by the Social Research Centre at ANU. The questionnaire contains 290 questions that covers various aspects of a participant lifestyle factors. There is a codebook assigning questions to the class labels of this dataset which also describes the distributions of their corresponding responses. 
-
 ## Exploratory Data Analysis
 ```{r echo=FALSE, warning=FALSE}
 library(tidyverse)
@@ -99,7 +107,11 @@ library(broom)
 data <- read.csv("Data/wvs_data.csv")
 ```
 
-The descriptive statistics of the quality of life score show that the average person is unhappy (Score < 0), this is supported by the histogram and at Figure 1 showing the distribution has a negative skew present in the dataset. Although the dataset is large enough for the Central Limits theorem to be applied (n = 1813), it is difficult to capture a linear relationship of the predictor variables and quality of life, and hence we preferred to model quality of life by capturing non-linear relationships.
+The descriptive statistics of the quality of life score show that the average person is unhappy (Score < 0), this is supported by the histogram and at Figure 1 showing the distribution has a negative skew present in the dataset. Although the dataset is large enough for the Central Limits theorem to be applied (n = 1813), it is difficult to capture a linear relationship of the predictor variables and quality of life, and hence we preferred to model quality of life by capturing non-linear relationships. 
+
+The dataset contains around 1.5% missing entries as can be seen in Figure 2. To reduce the model complexity of our decision tree and hence reduce the chance of overfitting in the decision tree, we removed NULL values during the data cleaning process. 
+
+From Figure 4, we see that aside from neighbourhood safety, the class distributions are imbalanced, which could harm the validity of a decision tree-based approach.
 
 ```{r echo=FALSE, warning=FALSE}
 data <- data %>%
@@ -166,15 +178,10 @@ ggplot(data, aes(life.quality)) +
   geom_histogram(fill = 'black', bins = 30) + 
   theme_bw()+ ggtitle("Distribution of Quality of Life")
 ```
-The dataset with the desired attributes contains around 1.5% missing entries as can be seen in Figure 2. To reduce the model complexity of our decision tree and hence reduce the chance of overfitting in the decision tree, we removed NULL values during the data cleaning process. 
 
 ```{r fig.cap = "Visualisation of missing data in the dataset, there are only a small amount of missing entries present in the dataset.", echo = FALSE, warning = FALSE}
 vis_miss(sub_data)
 ```
-
-As all attributes in the dataset are categorical in nature, we investigated the relationship between the selected attributes with quality of lifestyle score using boxplots. We can see a social gradients on quality of life- That is to say, as the circumstances in life improve, (I.e. Never going without food or income, higher neihgbourhood trust, and never going without medicine and higher social standing) the higher your the quality of life score is expected to be.
-
-From figure \ref{eda}, we can see that as
 
 ### Predictor Variables
 As all attributes in the dataset are categorical in nature, we investigated the relationship between the selected attributes with quality of lifestyle score using boxplots. From the boxplot in Figure 3, we see that the Quality of life improves as circumstances improve (plentiful access to food, feeling safe in your environment, cash in hand available). While first four boxplots (QoL vs Food - Gone without Cash Income) show a trend down, it's important to note that these were measured inversely. I.e. Larger = Better.
@@ -209,10 +216,19 @@ print(ggarrange(qol_vs_food, without_meds, without_cash, working_class, neighbou
 
 ```{r dist, fig.pos = "H", fig.cap = "Class Distribution of variables, there is a high amount of class imbalance in the dataset.", echo=FALSE, warning=FALSE}
 food_hist <- ggplot(data_factor, aes(x = food))  + geom_bar() + theme_bw() + ggtitle("Class Distribution of Times with Food") 
-```
-### Class Distributions 
 
-From Figure 4, we see that aside from neighbourhood safety, the class distributions are imbalanced, which could harm the validity of a decision tree-based approach.
+med_hist <- ggplot(data_factor, aes(x = medicine))  + geom_bar() + theme_bw() + ggtitle("Class Distribution of Times with Medicine") 
+
+without_cash <- ggplot(data_factor, aes(x = cash))  + geom_bar() + theme_bw() + ggtitle("Class Distribution of Times without Cash Income") 
+
+working_class <- ggplot(data_factor, aes(x = class))  + geom_bar() + theme_bw() + ggtitle("Working Class Distribution") 
+
+neighbourhood_safety <- ggplot(data_factor, aes(x = safety))  + geom_bar() + theme_bw() + ggtitle("Neighborhood Safety Distribution") 
+
+print(ggarrange(food_hist, med_hist, without_cash, working_class, neighbourhood_safety))
+```
+
+
 
 ### Data Cleaning
 The cleaning of the data was done using the following steps:
@@ -353,6 +369,7 @@ cor_mat
 ```{r echo=FALSE, warning=FALSE}
 corrplot(cor_mat, method = "color", addCoef.col = "black", tl.col = "black", tl.srt = 45, title = "Correlation Matrix of QoL Predictors", mar = c(0, 0, 2, 0))
 ```
+
 #### Observations
 - Positive correlation between health, income and food although the relationship itself is quite weak (score of 0.29 with food and score of 0.36 with both health and food).
 - All three variables have positive correlations score with each other, indicating that these factors affect each other.
@@ -377,6 +394,7 @@ train[, c(predictors, "life.quality")] |>
   ggplot(aes(x=Value)) + 
   geom_histogram(bins = 30) + facet_wrap(~Variable, scales="free")
 ```
+
 #### Discussion
 - For variables `gone_no_food`, `gone_no_health`, `gone_no_income`, majority of survey responses sit at highest possible score. This also confirms left-skew distribution for `life.quality`. 
 - Very few respondents indicated poor quality of life factors (not enough food, bad health and low income). 
@@ -495,6 +513,7 @@ print(summary(prune_residuals))
 cat(sprintf("\nMean Residual: %.4f\n", mean(prune_residuals)))
 cat(sprintf("SD of Residuals: %.4f", sd(prune_residuals)))
 ```
+
 #### Discussion
 - Residual vs fitted plot displays no systemic bias, points follow shape of vertical columns but this is expected from survey data and decision tree nature (fixed leaf nodes).
 - Residual distribution shows a very close bell-shape, mostly centered near zero. 
@@ -548,6 +567,7 @@ test_retest_df_long <- test_retest_df |>
 ggplot(test_retest_df_long, aes(x = reorder(Variable, Importance), y = Importance, fill = Split)) + 
   geom_bar(stat="identity", position="dodge") + labs(title = "Test-Retest: Feature Importance between two Different Data Splits", x = "Variable", y = "Normalised Importance")
 ```
+
 #### Discussion
 - Strong consistency in rankings between the two splits
 - `gone_no_health` the most dominant predictor (scoring 100 in both splits)

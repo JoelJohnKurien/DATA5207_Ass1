@@ -1,7 +1,9 @@
 ---
-title: "Group1"
+title: "Group Project 1"
+author: "Group 26"
 output:
-  bookdown::pdf_document2
+  pdf_document: default
+  html_document: default
 date: "2026-04-16"
 ---
 
@@ -75,6 +77,10 @@ Each predictor is cleaned by replacing the $-2$ (no answer) code with missing va
    neighbourhood. Originally coded 1 = Trust completely to 4 = Do not trust at
    all; reverse-coded so 4 = Trust completely.
 
+
+## Dataset
+
+The dataset is sourced from the World Values Survey hosted by the Social Research Centre at ANU. The questionnaire contains 290 questions that covers various aspects of a participant lifestyle factors. There is a codebook assigning questions to the class labels of this dataset which also describes the distributions of their corresponding responses. 
 
 ## Exploratory Data Analysis
 ```{r echo=FALSE, warning=FALSE}
@@ -158,17 +164,19 @@ tidy(summary(data$life.quality)) %>% gt() %>% tab_header(title = "Descriptive St
 ```{r echo=FALSE, warning=FALSE, fig.cap= "Histogram showing the distribution of Life Quality, the distribution has a negative skew"}
 ggplot(data, aes(life.quality)) + 
   geom_histogram(fill = 'black', bins = 30) + 
-  theme_bw() + ggtitle("Distribution of Quality of Life")
+  theme_bw()+ ggtitle("Distribution of Quality of Life")
 ```
-
-The dataset with the desired attributes contains around 1.5% missing entries as can be seen in Figure 2. To reduce the model complexity of our decision tree and hence reduce the chance of overfitting in the decision tree, we removed NULL values during the data cleaning process.
+The dataset with the desired attributes contains around 1.5% missing entries as can be seen in Figure 2. To reduce the model complexity of our decision tree and hence reduce the chance of overfitting in the decision tree, we removed NULL values during the data cleaning process. 
 
 ```{r fig.cap = "Visualisation of missing data in the dataset, there are only a small amount of missing entries present in the dataset.", echo = FALSE, warning = FALSE}
 vis_miss(sub_data)
 ```
 
-### Predictor Variables 
+As all attributes in the dataset are categorical in nature, we investigated the relationship between the selected attributes with quality of lifestyle score using boxplots. We can see a social gradients on quality of life- That is to say, as the circumstances in life improve, (I.e. Never going without food or income, higher neihgbourhood trust, and never going without medicine and higher social standing) the higher your the quality of life score is expected to be.
 
+From figure \ref{eda}, we can see that as
+
+### Predictor Variables
 As all attributes in the dataset are categorical in nature, we investigated the relationship between the selected attributes with quality of lifestyle score using boxplots. From the boxplot in Figure 3, we see that the Quality of life improves as circumstances improve (plentiful access to food, feeling safe in your environment, cash in hand available). While first four boxplots (QoL vs Food - Gone without Cash Income) show a trend down, it's important to note that these were measured inversely. I.e. Larger = Better.
 
 ```{r echo=FALSE, warning=FALSE, fig.cap ="Boxplots of predictor variables against Quality of Life,  scores of safety and class are inverted I.e. 1 is highest"}
@@ -201,22 +209,16 @@ print(ggarrange(qol_vs_food, without_meds, without_cash, working_class, neighbou
 
 ```{r dist, fig.pos = "H", fig.cap = "Class Distribution of variables, there is a high amount of class imbalance in the dataset.", echo=FALSE, warning=FALSE}
 food_hist <- ggplot(data_factor, aes(x = food))  + geom_bar() + theme_bw() + ggtitle("Class Distribution of Times with Food") 
-
-med_hist <- ggplot(data_factor, aes(x = medicine))  + geom_bar() + theme_bw() + ggtitle("Class Distribution of Times with Medicine") 
-
-without_cash <- ggplot(data_factor, aes(x = cash))  + geom_bar() + theme_bw() + ggtitle("Class Distribution of Times without Cash Income") 
-
-working_class <- ggplot(data_factor, aes(x = class))  + geom_bar() + theme_bw() + ggtitle("Working Class Distribution") 
-
-neighbourhood_safety <- ggplot(data_factor, aes(x = safety))  + geom_bar() + theme_bw() + ggtitle("Neighborhood Safety Distribution") 
-
-print(ggarrange(food_hist, med_hist, without_cash, working_class, neighbourhood_safety))
 ```
-
-
 ### Class Distributions 
 
 From Figure 4, we see that aside from neighbourhood safety, the class distributions are imbalanced, which could harm the validity of a decision tree-based approach.
+
+### Data Cleaning
+The cleaning of the data was done using the following steps:
+- Since the Quality of Life feature was the dependent variable for our research, we removed all the rows where the dependent variable was missing.
+- For the records with missing values in the other columns, the count was less than 20 - so we decided it would be logically easier to remove those records as well.
+- As all the features were categorical, it was difficult to detect outliers in the independent variables, so we decided to leave it as such since the imbalance in independent features would help us understand more about the demographic of the survey.
 
 ```{r echo=FALSE, warning=FALSE}
 sub_data <- sub_data[!is.na(sub_data$life.quality), ]
@@ -227,15 +229,23 @@ sub_data$life.quality <- as.numeric(sub_data$life.quality)
 sub_data[, predictors] <- lapply(sub_data[, predictors], as.numeric)
 ```
 
-
-
 ## Methodology
 
 ### Assumptions
+Given the observed negative skew in the quality of life distribution, a decision tree model was selected as it makes no parametric assumptions about the distribution of the dependent variable. Unlike OLS regression, decision trees partition the feature space through recursive binary splits and are therefore robust to non-normality in the outcome variable, making them appropriate for the skewed latent factor scores observed in this sample.
+
+However, the features in the data may have a non-linear relationships with the latent variable. This may be due to the low number of features selected which may cause compounding variables to influence the result. 
 
 ### Testing and Validation
-#### Unpruned and Pruned trees comparison
+To test our hypotheses and validate our assumptions we will test 3 different decision trees to come to a concrete conclusion regarding the applicability of decision trees to this research question and how much importance each feature (gone with out income, gone without food, gone without medicine, trusting neighbors and social class) affects the latent variable Quality of life.
+
+The three decision trees validation that we will be testing are:
+- Comparing the pruned and unpruned decision trees to see if the features that are selected are reliable or not.
+- Using K-folds cross validation with decision trees to see if there are any relation between the features and the latent variable.
+- Using an ensemble of decision trees (bagging) to see how different combinations of the same feature set may lead to different results.
+
 ```{r echo=FALSE, warning=FALSE}
+#### Unpruned and Pruned trees comparison
 set.seed(123)
 train_idx <- sample(nrow(sub_data), 0.8 * nrow(sub_data))
 train <- sub_data[train_idx, ]
@@ -258,8 +268,8 @@ pred_prun <- predict(tree_pruned,   test[, predictors])
 rmse <- function(actual, pred) sqrt(mean((actual - pred)^2))
 ```
 
-#### K-Folds cross validation
 ```{r echo=FALSE, warning=FALSE}
+### k-fold cross validation
 set.seed(123)
 # ── 1. Set up k-fold CV (k=10 is standard)
 ctrl <- trainControl(method = "cv", number = 10)
@@ -273,92 +283,43 @@ cv_tree <- train(
   tuneLength = 10        
 )
 
-plot(cv_tree)            
-
-pred_cv <- predict(cv_tree, newdata = test[, predictors])
-
+pred_cv <- predict(cv_tree, newdata = test[, predictors])         
 ```
 
-#### Bagging validation:
 ```{r echo=FALSE, warning=FALSE}
+#Bagging
+n_trees <- 100
+
+# Create empty list to store models
+trees <- vector("list", n_trees)
+
+# Bagging loop - store model objects
 set.seed(123)
-n_bags  <- 10          # number of bootstrap samples
-n_train <- nrow(train)
-
-# Store each tree
-trees <- vector("list", n_bags)
-
-for (i in 1:n_bags) {
+for (i in seq_len(n_trees)) {
   # Bootstrap sample
-  idx       <- sample(1:n_train, n_train, replace = TRUE)
-  boot_data <- train[idx, c(predictors, "life.quality")]
+  boot_idx <- sample(nrow(train), replace = TRUE)
+  boot_data <- train[boot_idx, ]
   
-  # Fit tree on bootstrap sample
-  trees[[i]] <- rpart(
-    life.quality ~ .,
-    data    = boot_data,
-    method  = "anova",
-    control = rpart.control(cp = 0.01)
-  )
+  # Fit tree and store MODEL (not prediction)
+  trees[[i]] <- rpart(life.quality ~ ., 
+                      data = boot_data[, c(predictors, "life.quality")],
+                      method = "anova")
 }
 
-preds_matrix <- sapply(trees, function(tree) {
-  predict(tree, newdata = test[, predictors])
-})
+# Predict on test set
+pred_bag <- rowMeans(sapply(trees, function(t) {
+  predict(t, newdata = test[, predictors])
+}))
 
-# Average predictions across all trees (this is bagging)
-pred_bag <- rowMeans(preds_matrix)
-
-par(mfrow = c(2, 2))   # show 6 trees
-for (i in 1:2) {
-  rpart.plot(trees[[i]],
-             main = paste("Bootstrap Tree", i),
-             cex  = 0.6,
-             type = 2)
-}
-par(mfrow = c(1, 1))
+# Predict on train set
+pred_bag_train <- rowMeans(sapply(trees, function(t) {
+  predict(t, newdata = train[, predictors])
+}))
 ```
-Where we try to observe the different decision trees formed by using bootstrap samples of the dataset provided for our interested features.
+
 ## Result Analysis
 
-### Feature Importance observed through K-folds validation where the number of folds = 10
-```{r echo=FALSE, warning=FALSE}
-plot(varImp(cv_tree),
-     main = "Feature Importance - 10-Fold cross validation Tree",
-     top  = 10)  
-```
-
-### The goodness of fit ($R^{2}$) for each model and the root mean squared error for each model
-```{r echo=FALSE, warning=FALSE}
-r2 <- function(actual, pred) {
-  ss_res <- sum((actual - pred)^2)
-  ss_tot <- sum((actual - mean(actual))^2)
-  1 - (ss_res / ss_tot)
-}
-
-results <- data.frame(
-  Model = c("Unpruned Tree", "Pruned Tree", "CV Tree", "Bagging"),
-  RMSE  = round(c(
-    rmse(test$life.quality, pred_unp),
-    rmse(test$life.quality, pred_prun),
-    rmse(test$life.quality, pred_cv),
-    rmse(test$life.quality, pred_bag)
-  ), 4),
-  R2 = round(c(
-    r2(test$life.quality, pred_unp),
-    r2(test$life.quality, pred_prun),
-    r2(test$life.quality, pred_cv),
-    r2(test$life.quality, pred_bag)
-  ), 4)
-)
-
-# Sort by RMSE ascending (best first)
-results <- results[order(results$RMSE), ]
-
-print(results)
-```
-
-### Plotting goodness of fit for each feature $R^{2}$ used in the decision tree.
+### Plotting goodness of fit for each feature $R^{2}$ used in the 10-fold cross validated decision tree.
 ```{r echo=FALSE, warning=FALSE}
 # R² per feature = correlation² between feature and life.quality
 feature_r2 <- sapply(predictors, function(var) {
@@ -379,6 +340,8 @@ ggplot(feature_r2_df, aes(x = reorder(Variable, R2), y = R2)) +
        y     = "R²") +
   theme_minimal()
 ```
+The low $R^2$ observed may reflect both the non-linear nature of relationships between predictors and quality of life, and the influence of omitted variables not captured by the five predictors selected, warranting cautious interpretation of the results.
+
 ## Testing Decision Tree Validity and Reliability
 
 ### Correlation matrix
@@ -407,7 +370,7 @@ skew_values_df <- data.frame(
 print(skew_values_df)
 ```
 
-```{r plot skewness distribution for all variables}
+```{r plot skewness distribution for all variables, echo=FALSE, warning=FALSE}
 # Pivot skew measurement data frame from wide to long
 train[, c(predictors, "life.quality")] |> 
   pivot_longer(everything(), names_to = "Variable", values_to = "Value") |> 
@@ -455,6 +418,7 @@ results_overfit_check <- results_overfit_check[order(results_overfit_check$RMSE_
 
 print(results_overfit_check)
 ```
+
 ```{r model performance graph, echo=FALSE, warning=FALSE}
 results_overfit_check_long <- results_overfit_check |> 
   pivot_longer(cols = c("train_RMSE", "test_RMSE"),
@@ -472,6 +436,9 @@ ggplot(results_overfit_check_long, aes(x=Model, y=RMSE, fill=Set)) + geom_bar(st
 
 ### Pre-pruning Exploration
 ```{r prepruning exploration, echo=FALSE, warning=FALSE}
+r2 <- function(actual, pred) {
+  1 - sum((actual - pred)^2) / sum((actual - mean(actual))^2)
+}
 preprune_config <- list(list(maxdepth = 3, minsplit = 10, minbucket = 5),
                         list(maxdepth = 5, minsplit = 10, minbucket = 5),
                         list(maxdepth = 10, minsplit = 20, minbucket = 10),
@@ -588,6 +555,7 @@ ggplot(test_retest_df_long, aes(x = reorder(Variable, Importance), y = Importanc
 - `trust_neighbourhood` and `social_class` showed greater variation in feature importance score, still retained same rank in both splits.
 
 ## Limitations
+The non-linear relationships between predictors and quality of life reduce the suitability of tree-based models, with factor analysis or neural network approaches likely yielding stronger results. Additionally, examining only five of fifty-plus available variables introduces omitted variable bias, limiting the model's comprehensiveness and suggesting the need for further research.
 
 # References
 

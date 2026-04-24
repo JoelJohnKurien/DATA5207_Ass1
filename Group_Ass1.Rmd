@@ -22,14 +22,23 @@ knitr::opts_chunk$set(echo = TRUE,
 
 ### Hypothesis
 
+## Dataset
+
+The dataset is sourced from the World Values Survey hosted by the Social Research Centre at ANU. The questionnaire contains 290 questions that covers various aspects of a participant lifestyle factors. There is a codebook assigning questions to the class labels of this dataset which also describes the distributions of their corresponding responses. 
+
 ## Exploratory Data Analysis
 ```{r echo=FALSE, warning=FALSE}
 library(tidyverse)
 library(psych)
 library(ggpubr)
+library(naniar)
 
 data <- read.csv("Data/wvs_data.csv")
 ```
+
+We used a factor analysis to extract the quality of life from 5 main attributes: Happiness, health, financial status, life satisfaction, and freedom. 
+
+The histogram below shows the distribution of quality of life within the sample. We can see that there is a negative skew present in our dataset, the non-normal distribution present in the dataset made 
 
 ```{r echo=FALSE, warning=FALSE}
 data <- data %>%
@@ -85,8 +94,71 @@ fa.fit <- fa(data[,c("happiness",
 data$life.quality <- as.numeric(fa.fit$scores)
 
 cols <- c("gone_no_food", "gone_no_health", "gone_no_income", "trust_neighborhood", "social_class", "life.quality")
+
 sub_data <- data %>% select(all_of(cols))
 ```
+
+
+```{r qol_dist, fig.pos = "H", echo=FALSE, warning=FALSE, fig.cap= "Histogram showing the distribution of Life Quality, the distribution has a negative skew"}
+ggplot(data, aes(life.quality)) + 
+  geom_histogram(fill = 'black', bins = 30) + 
+  theme_bw()
+```
+
+
+```{r echo=FALSE, warning=FALSE}
+```
+The dataset with the desired attributes contains around 1.5% missing entries. As can be seen in the plot below. 
+
+```{r, echo = FALSE, warning = FALSE}
+vis_miss(sub_data)
+```
+For the purposes of our analysis, we selected questions that we believed aligned most with quality of life outcomes. Our selected questions were:
+
+- V188 = In the last 12 months, how often with your family have you gone without food to eat?
+
+- V189 = In the last 12 months, how often has your family felt unsafe from crime in your home?
+
+- V190 = In the last 12 months, how often has your family gone without cash income?
+
+- V191 = In the last 12 months, how often has your family felt unsafe from crime in your home?
+ 
+- V236 = People sometimes describe themselves as belonging to the working class, the middle class, or the upper, or lower class. Would you describe yourself as belonging to the…?
+
+As all attributes in the dataset are categorical in nature, we investigated the relationship between the selected attributes with quality of lifestyle score using boxplots. We can see a social gradients on quality of life- That is to say, as the circumstances in life improve, (I.e. Never going without food or income, higher neihgbourhood trust, and never going without medicine and higher social standing) the higher your the quality of life score is expected to be.
+
+From figure \ref{eda}, we can see that as
+
+- Quality of life improves as circumstances improve (plentiful access to food, feeling safe in your environment, cash in hand available). While first four boxplots (QoL vs Food - Gone without Cash Income) show a trend down, it's important to note that these were measured inversely. This means that in reality the trend is upwards instead of what's directly shown on the graph which is a downward trend.
+
+```{r eda, echo=FALSE, warning=FALSE}
+
+factors = c("food", "class", "medicine", "safety", "cash")
+
+data_factor <- data %>%
+  dplyr::mutate(
+         food = as.factor(data$gone_no_food),
+         class = as.factor(data$social_class),
+         medicine = as.factor(data$gone_no_health),
+         safety = as.factor(data$trust_neighborhood),
+         cash = as.factor(data$gone_no_income))
+
+
+data_factor <- data_factor %>% drop_na(factors)
+
+qol_vs_food <- ggplot(data_factor, aes(x = food, y = life.quality))  + geom_boxplot() + theme_bw() + ggtitle("QoL vs Food") + scale_x_discrete("Food") + scale_y_discrete("Life Quality")
+
+without_meds <- ggplot(data_factor, aes(x = medicine, y = life.quality))  + geom_boxplot() + theme_bw() + ggtitle("Going without Medicine") + scale_x_discrete("Medicine") + scale_y_discrete("Life Quality")
+
+without_cash <- ggplot(data_factor, aes(x = cash, y = life.quality))  + geom_boxplot() + theme_bw() + ggtitle("Gone without Cash Income") + scale_x_discrete("Cash") + scale_y_discrete("Life Quality")
+
+working_class <- ggplot(data_factor, aes(x = class, y = life.quality))  + geom_boxplot() + theme_bw() + ggtitle("Working class") + scale_x_discrete("Class") + scale_y_discrete("Life Quality")
+
+neighbourhood_safety <- ggplot(data_factor, aes(x = safety, y = life.quality))  + geom_boxplot() + theme_bw() + ggtitle("Safety in Neighbourhood") + scale_x_discrete("Safety") + scale_y_discrete("Life Quality")
+
+ggarrange(qol_vs_food, without_meds, without_cash, working_class, neighbourhood_safety)
+```
+
 
 ### Missing Data Plot
 ```{r echo=FALSE, warning=FALSE}

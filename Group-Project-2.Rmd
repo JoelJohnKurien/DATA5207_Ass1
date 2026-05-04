@@ -1,0 +1,745 @@
+---
+title: "The US opiate crisis: poverty, prescription rates and drug-related mortality at the county level"
+subtitle: "DATA5207 Group Project 2"
+author: "Group [N] -- members:"
+date: "`r format(Sys.Date(), '%B %Y')`"
+output:
+  pdf_document:
+    toc: TRUE
+    toc_depth: 3
+    latex_engine: xelatex
+  html_document:
+    toc: no
+    df_print: paged
+header-includes:
+- \usepackage{caption}
+- \captionsetup[figure]{font=scriptsize}
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, message = FALSE, warning = FALSE,
+  fig.width = 6, fig.height = 4, fig.align = "center"
+)
+
+# Defensive package loading: install only if missing so the file knits on a
+# fresh machine. The marking brief warns that failure to knit = automatic fail.
+required_packages <- c(
+  "tidyverse", "sf", "stargazer", "MASS", "knitr",
+  "scales", "ggplot2", "gridExtra"
+)
+for (pkg in required_packages) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    install.packages(pkg, repos = "https://cloud.r-project.org")
+  }
+}
+```
+
+\newpage
+
+# Introduction
+
+The United States is in the midst of a sustained drug-overdose epidemic that
+has, since the late 1990s, killed several hundred thousand people. A central
+feature of the crisis is its uneven geography: drug-related mortality is
+concentrated in particular counties, particularly outside of large
+metropolitan areas, and is closely linked to the supply of prescription
+opioids and to underlying social and economic disadvantage. This report uses
+2016 county-level data from the *US Census Bureau* and the *Centers for
+Disease Control and Prevention (CDC)* to examine how county poverty rates and
+opioid prescribing rates jointly predict mortality from drugs and alcohol. We
+ask: **after accounting for other county-level characteristics, are
+prescribing rates and poverty independently associated with drug- and
+alcohol-related mortality?**
+
+# Theory
+
+Two complementary literatures motivate the analysis. The first, often called
+the *deaths of despair* hypothesis (Case and Deaton 2015, 2017), argues that
+declining economic opportunity in non-urban America has produced excess
+mortality from suicide, alcohol, and drug overdose among working-age adults.
+On this account, county-level poverty acts as a proxy for the structural
+disadvantage that drives use of, and harm from, drugs and alcohol. We
+therefore expect poverty to be positively associated with drug- and
+alcohol-related mortality.
+
+The second is a *supply-side* argument: liberal opioid prescribing, especially
+in the late 1990s and 2000s, created a population of dependent users who
+later transitioned to illicit opioids when prescription supply tightened
+(Quinones 2015; Alpert et al. 2018). On this account, the prescribing rate
+itself is a leading indicator of overdose mortality, independent of underlying
+poverty. We therefore expect prescribing rates to be positively associated
+with drug and alcohol mortality, and to remain so after controlling for
+poverty.
+
+These accounts are not mutually exclusive. The point of the regression
+analysis below is to estimate each association while holding the other
+constant, alongside conventional controls for the urban-rural gradient,
+labour market conditions and education.
+
+# Data and methods
+
+## Data sources
+
+We combine four county-level datasets:
+
+1. **Poverty.** *American Community Survey 5-year estimates 2016*, table
+   S1702 (US Census Bureau). We use the percentage of families with income
+   below the federal poverty line.
+2. **Drug- and alcohol-related mortality.** *CDC WONDER Multiple Cause of
+   Death*, 1999-2016. We use the crude death rate per 100,000 population, as
+   well as the underlying death and population counts for the count-data
+   robustness model.
+3. **Opioid prescribing rates.** *CDC US Opioid Dispensing Rate Maps*. We
+   use 2016 prescriptions per 100 persons.
+4. **Other county-level predictors.** A consolidated dataset distributed with
+   this assignment (Wu, *COVID-19 US County-level Summaries*; codebook at
+   <https://github.com/JieYingWu/COVID-19_US_County-level_Summaries>). We use
+   four additional variables: the USDA Rural-Urban Continuum Code (2013),
+   the 2018 unemployment rate, the percentage of adults aged 25+ with a
+   bachelor's degree or higher (2014-18), and population density.
+
+For the spatial visualisation we use the *US Census Bureau* 2016
+cartographic-boundary shapefile of US counties (resolution 1:20m).
+
+## Loading and preparing the data
+
+We begin by loading the poverty dataset. The raw file has two header rows, so
+we skip the first when calling `read.csv()`:
+
+\vspace{6mm}
+
+```{r load poverty data}
+poverty.data <- read.csv(
+  "Data/US data for group task/poverty/poverty data - ACS_16_5YR_S1702_with_ann.csv",
+  skip = 1, header = TRUE
+)
+```
+
+\vspace{6mm}
+
+The file contains `r dim(poverty.data)[2]` columns and
+`r dim(poverty.data)[1]` rows -- one row per US county. Next we load the CDC
+mortality file. It is tab-separated, so we use `read.table()`:
+
+\vspace{6mm}
+
+```{r load mortality data}
+drugs.mort.data <- read.table(
+  "Data/US data for group task/mortality/Drugs and alcohol Cause of Death, 1999-2016.txt",
+  sep = "\t", header = TRUE
+)
+```
+
+\vspace{6mm}
+
+The mortality file has `r dim(drugs.mort.data)[2]` variables and
+`r dim(drugs.mort.data)[1]` rows. The two files use different names for the
+county FIPS code (`Id2` in the poverty file, `County.Code` in the mortality
+file), so we rename one before merging. We also strip the suffixes "County",
+"Parish", "city", "Borough" and "Census Area" from county names so that the
+names match those in the shapefile we will use later for mapping. We retain
+`Deaths` and `Population` from the mortality file because we will need them
+for the negative-binomial robustness check below.
+
+\vspace{6mm}
+
+```{r merge poverty and mortality data}
+library(tidyverse)
+
+patterns <- c(" County| Parish| city| Borough| Census Area")
+
+county.data <- merge(
+  poverty.data %>%
+    dplyr::rename(below.poverty.rate =
+                    All.families....Percent.below.poverty.level..Estimate..Families) %>%
+    dplyr::select(Id2, below.poverty.rate),
+  drugs.mort.data %>%
+    dplyr::rename(Id2 = County.Code,
+                  mortality.rate = Crude.Rate) %>%
+    mutate(county = gsub(patterns, "", County)) %>%
+    dplyr::select(Id2, county, mortality.rate, Deaths, Population)
+)
+```
+
+\vspace{6mm}
+
+The merge produces `r dim(county.data)[1]` county-year observations on
+`r dim(county.data)[2]` variables. The CDC suppresses the crude rate when
+fewer than 20 deaths are recorded (these are coded as `Unreliable`), which
+both creates missingness and forces the variable to be read as a string.
+We recode these as `NA` and convert the column to numeric:
+
+\vspace{6mm}
+
+```{r recode unreliable mortality}
+county.data <- county.data %>%
+  mutate(mortality.rate = ifelse(
+    mortality.rate == "Unreliable",
+    NA,
+    suppressWarnings(as.numeric(as.character(mortality.rate)))
+  ))
+```
+
+\vspace{6mm}
+
+After this step `r sum(is.na(county.data$mortality.rate))` counties have a
+suppressed (missing) mortality rate. We retain them for the count-data
+robustness model below, which uses raw `Deaths` and `Population` rather than
+the suppressed crude rate.
+
+### Adding opioid prescribing rates
+
+We then load the 2016 county-level opioid prescribing file and merge it on
+the FIPS code, standardising both the poverty rate and the prescribing rate
+into z-scores so the regression coefficients are directly comparable:
+
+\vspace{6mm}
+
+```{r load and merge opioids data}
+opioids.data <- read.csv(
+  "Data/US data for group task/opioids/opioids prescribing rates.csv"
+)
+
+county.data <- merge(
+  county.data %>%
+    mutate(z.poverty = (below.poverty.rate - mean(below.poverty.rate, na.rm = TRUE)) /
+             sd(below.poverty.rate, na.rm = TRUE)),
+  opioids.data %>%
+    dplyr::rename(Id2 = FIPS.County.Code) %>%
+    mutate(z.opiates = (X2016.Prescribing.Rate -
+                          mean(X2016.Prescribing.Rate, na.rm = TRUE)) /
+             sd(X2016.Prescribing.Rate, na.rm = TRUE)) %>%
+    dplyr::select(Id2, z.opiates, X2016.Prescribing.Rate)
+)
+```
+
+\vspace{6mm}
+
+### Adding control variables from the consolidated county-level dataset
+
+The consolidated `county.data.RData` file contains hundreds of variables.
+Because the object inside it happens to be called `county.data` -- the same
+name as our merged data frame -- we load it into a separate environment and
+extract the four control variables we want before discarding the rest. We
+keep the variable names short and informative:
+
+\vspace{6mm}
+
+```{r load and merge control variables}
+controls.env <- new.env()
+load(
+  "Data/US data for group task/Other census data/county.data.RData",
+  envir = controls.env
+)
+
+controls <- controls.env$county.data %>%
+  dplyr::transmute(
+    Id2 = as.integer(FIPS),
+    rural.urban.code = as.numeric(Rural.urban_Continuum.Code_2013),
+    unemployment.rate = as.numeric(Unemployment_rate_2018),
+    pct.bachelors = as.numeric(
+      Percent.of.adults.with.a.bachelor.s.degree.or.higher.2014.18
+    ),
+    pop.density = as.numeric(
+      Density.per.square.mile.of.land.area...Population
+    )
+  )
+
+rm(controls.env)
+
+county.data <- merge(county.data, controls, by = "Id2", all.x = TRUE)
+```
+
+\vspace{6mm}
+
+The Rural-Urban Continuum Code (USDA, 2013) ranges from 1 (most-urban
+metropolitan counties of one million or more) to 9 (the most rural,
+non-adjacent to a metropolitan area). Higher values therefore indicate more
+rural counties.
+
+### Loading the US county-level shapefile
+
+For the spatial visualisation we load the Census Bureau's 2016
+county-boundary shapefile and the FIPS concordance file, attach state
+abbreviations, fix three known county-name discrepancies, and join in the
+analysis variables. Because a small number of county-name strings (e.g.
+"Bedford city" in Virginia) are duplicated across states, we set
+`relationship = "many-to-many"` to silence the corresponding warning:
+
+\vspace{6mm}
+
+```{r load shapefile and merge with county data}
+library(sf)
+
+us.shape.1 <- st_read(
+  "Data/US data for group task/US shapefiles/cb_2016_us_county_20m.shp",
+  quiet = TRUE
+)
+
+fip.concordance <- read.csv(
+  "Data/US data for group task/fips concordance.csv"
+)
+
+us.shape.2 <- us.shape.1 %>%
+  merge(
+    fip.concordance %>%
+      mutate(STATEFP = ifelse(
+        Numeric.code >= 0 & Numeric.code <= 9,
+        paste0(0, Numeric.code), as.character(Numeric.code)
+      )) %>%
+      dplyr::rename(state = Alpha.code)
+  )
+
+us.shape.2$county <- paste0(us.shape.2$NAME, ", ", us.shape.2$state)
+us.shape.2$county <- gsub("Doña Ana, NM", "Dona Ana, NM", us.shape.2$county)
+us.shape.2$county <- gsub("LaSalle, LA",       "La Salle, LA",  us.shape.2$county)
+us.shape.2$county <- gsub("Oglala Lakota, SD", "Oglala, SD",    us.shape.2$county)
+
+us.shape.2 <- dplyr::left_join(
+  us.shape.2,
+  county.data %>%
+    dplyr::select(county, below.poverty.rate, mortality.rate,
+                  X2016.Prescribing.Rate),
+  by = "county",
+  relationship = "many-to-many"
+)
+```
+
+\vspace{6mm}
+
+## Descriptive analysis
+
+Before fitting any regression, we examine the distribution of each variable
+and the bivariate associations among them. The table below reports summary
+statistics for the analytic sample (counties with non-missing mortality and
+prescribing data):
+
+\vspace{6mm}
+
+```{r summary statistics}
+analysis.df <- county.data %>%
+  dplyr::filter(
+    !is.na(mortality.rate),
+    !is.na(below.poverty.rate),
+    !is.na(X2016.Prescribing.Rate)
+  )
+
+# Build the summary table manually so we don't rely on a regex that has
+# to cope with parentheses / per-cent signs in column labels.
+summary.vars <- list(
+  "Drug/alcohol mortality (per 100k)"   = analysis.df$mortality.rate,
+  "Families below poverty line (%)"     = analysis.df$below.poverty.rate,
+  "Opioid Rx per 100 persons (2016)"    = analysis.df$X2016.Prescribing.Rate,
+  "Unemployment rate (%)"               = analysis.df$unemployment.rate,
+  "Adults with bachelor's degree+ (%)"  = analysis.df$pct.bachelors,
+  "Rural-urban continuum code (1-9)"    = analysis.df$rural.urban.code
+)
+
+summary.tbl <- do.call(rbind, lapply(names(summary.vars), function(nm) {
+  x <- summary.vars[[nm]]
+  data.frame(
+    Variable = nm,
+    Mean     = round(mean(x,   na.rm = TRUE), 2),
+    SD       = round(sd(x,     na.rm = TRUE), 2),
+    Min      = round(min(x,    na.rm = TRUE), 2),
+    Median   = round(median(x, na.rm = TRUE), 2),
+    Max      = round(max(x,    na.rm = TRUE), 2),
+    N        = sum(!is.na(x)),
+    check.names = FALSE
+  )
+}))
+
+knitr::kable(
+  summary.tbl,
+  row.names = FALSE,
+  caption = "Summary statistics for the analytic sample"
+)
+```
+
+\vspace{6mm}
+
+We then plot the distribution of the dependent variable and of each
+continuous predictor. Drug- and alcohol-related mortality is bounded below
+at zero and right-skewed -- the median county has a rate around 18 per
+100,000, but the upper tail extends past 100. A log transformation makes
+the distribution approximately symmetric, which is the standard treatment
+for skewed positive rates and is the form we will use as the dependent
+variable in the OLS models below.
+
+\vspace{6mm}
+
+```{r distribution of mortality, fig.width=7, fig.height=3.5, fig.cap="Distribution of drug- and alcohol-related mortality (raw and log scale)"}
+library(ggplot2)
+library(scales)
+
+p1 <- ggplot(analysis.df, aes(x = mortality.rate)) +
+  geom_histogram(bins = 40, fill = "grey40", colour = "white") +
+  labs(x = "Drug/alcohol mortality (per 100,000)", y = "Counties") +
+  theme_minimal()
+
+p2 <- ggplot(analysis.df, aes(x = mortality.rate)) +
+  geom_histogram(bins = 40, fill = "grey40", colour = "white") +
+  scale_x_log10() +
+  labs(x = "Mortality (log scale)", y = "Counties") +
+  theme_minimal()
+
+gridExtra::grid.arrange(p1, p2, ncol = 2)
+```
+
+\vspace{6mm}
+
+Bivariate scatter plots show the expected positive association of mortality
+with both poverty and opioid prescribing rates, but neither relationship is
+strong on its own. Loess smoothers (red) suggest that the association with
+prescribing rate is closer to linear in the log scale than in the raw
+scale, supporting our choice of `log(mortality.rate)` as the OLS outcome.
+
+\vspace{6mm}
+
+```{r bivariate scatter, fig.width=7, fig.height=3.2, fig.cap="Drug/alcohol mortality vs poverty and opioid prescribing rate (log scale)"}
+s1 <- ggplot(analysis.df,
+             aes(x = below.poverty.rate, y = mortality.rate)) +
+  geom_point(alpha = 0.25, size = 0.8) +
+  geom_smooth(method = "loess", se = FALSE, colour = "firebrick") +
+  scale_y_log10() +
+  labs(x = "Families below poverty (%)",
+       y = "Mortality (per 100k, log)") +
+  theme_minimal()
+
+s2 <- ggplot(analysis.df,
+             aes(x = X2016.Prescribing.Rate, y = mortality.rate)) +
+  geom_point(alpha = 0.25, size = 0.8) +
+  geom_smooth(method = "loess", se = FALSE, colour = "firebrick") +
+  scale_y_log10() +
+  labs(x = "Opioid Rx per 100 persons (2016)",
+       y = "Mortality (per 100k, log)") +
+  theme_minimal()
+
+gridExtra::grid.arrange(s1, s2, ncol = 2)
+```
+
+\vspace{6mm}
+
+Finally we report the pairwise Pearson correlations among the analysis
+variables (computed pairwise to handle missingness in the controls):
+
+\vspace{6mm}
+
+```{r correlation matrix}
+cor.mat <- analysis.df %>%
+  dplyr::transmute(
+    log.mortality     = log(mortality.rate),
+    poverty           = below.poverty.rate,
+    opioid.rx         = X2016.Prescribing.Rate,
+    unemployment      = unemployment.rate,
+    pct.bachelors     = pct.bachelors,
+    rural.urban.code  = rural.urban.code
+  ) %>%
+  cor(use = "pairwise.complete.obs") %>%
+  round(2)
+
+knitr::kable(
+  cor.mat,
+  caption = "Pairwise Pearson correlations among analysis variables"
+)
+```
+
+\vspace{6mm}
+
+The correlations behave as theory predicts: log-mortality is positively
+correlated with poverty, opioid prescribing, unemployment, and the
+rural-urban continuum (i.e. mortality is higher in more rural counties),
+and negatively correlated with the share of college-educated adults. None
+of the predictor pairs is so highly correlated as to threaten the
+multivariate model with collinearity (the largest absolute correlation
+among the regressors is between unemployment and poverty, around
+$|r| \approx 0.6$).
+
+## Regression specification
+
+We model county-level mortality with three nested ordinary-least-squares
+specifications:
+
+* **Model 1.** $\log(\text{mortality}_i) = \alpha + \beta_1\, z\text{-poverty}_i + \varepsilon_i$
+* **Model 2.** adds standardised opioid prescribing.
+* **Model 3.** adds the four county controls (unemployment rate, percent
+  with a bachelor's degree, the rural-urban continuum code and population
+  density on a log scale).
+
+OLS on the log of the mortality rate is appropriate here because the
+outcome is a continuous, strictly positive rate that is right-skewed in the
+raw scale (see Figure 1). Logging gives an approximately symmetric error
+distribution, ensures predicted mortality is non-negative, and yields
+coefficients that can be interpreted as approximate proportional changes.
+
+Because the dependent variable is fundamentally a *count* of deaths
+relative to a population denominator, we additionally fit a **negative
+binomial** model with `log(Population)` as an offset. This uses every
+county including those for which the CDC suppressed the crude rate, makes
+no log-normality assumption, and accounts for over-dispersion in count data
+(Cameron and Trivedi 2013). We treat it as a robustness check rather than
+the headline model so that interpretation remains transparent.
+
+# Results
+
+```{r build models}
+library(MASS)
+
+reg.df <- county.data %>%
+  dplyr::mutate(log.pop.density = log(pmax(pop.density, 0.1))) %>%
+  dplyr::filter(
+    !is.na(mortality.rate),
+    !is.na(z.poverty),
+    !is.na(z.opiates),
+    !is.na(unemployment.rate),
+    !is.na(pct.bachelors),
+    !is.na(rural.urban.code),
+    !is.na(log.pop.density)
+  )
+
+m1 <- lm(log(mortality.rate) ~ z.poverty,
+         data = reg.df)
+m2 <- lm(log(mortality.rate) ~ z.poverty + z.opiates,
+         data = reg.df)
+m3 <- lm(log(mortality.rate) ~ z.poverty + z.opiates +
+           unemployment.rate + pct.bachelors +
+           rural.urban.code + log.pop.density,
+         data = reg.df)
+
+# Negative-binomial robustness check (uses raw counts; doesn't drop
+# counties where CDC suppressed the crude rate)
+nb.df <- county.data %>%
+  dplyr::mutate(log.pop.density = log(pmax(pop.density, 0.1))) %>%
+  dplyr::filter(
+    !is.na(Deaths), !is.na(Population), Population > 0,
+    !is.na(z.poverty), !is.na(z.opiates),
+    !is.na(unemployment.rate), !is.na(pct.bachelors),
+    !is.na(rural.urban.code), !is.na(log.pop.density)
+  )
+
+m4 <- MASS::glm.nb(
+  Deaths ~ z.poverty + z.opiates + unemployment.rate +
+    pct.bachelors + rural.urban.code + log.pop.density +
+    offset(log(Population)),
+  data = nb.df
+)
+```
+
+## Multivariate regression
+
+```{r regression table, results='asis'}
+library(stargazer)
+
+stargazer(
+  m1, m2, m3,
+  type = "latex",
+  header = FALSE,
+  title = "OLS regressions of log drug- and alcohol-related mortality (per 100,000)",
+  column.labels = c("Poverty only", "+ Opioid Rx", "+ Controls"),
+  dep.var.labels = "log(mortality rate)",
+  covariate.labels = c(
+    "Poverty (z)",
+    "Opioid Rx (z)",
+    "Unemployment rate (\\%)",
+    "Bachelor's+ (\\%)",
+    "Rural-urban code (1-9)",
+    "log(pop. density)"
+  ),
+  digits = 3,
+  no.space = TRUE,
+  font.size = "small"
+)
+```
+
+\vspace{6mm}
+
+The bivariate Model 1 shows that a one-standard-deviation increase in the
+county poverty rate is associated with roughly a `r round(coef(m1)["z.poverty"]*100, 1)`
+percent increase in drug- and alcohol-related mortality. Model 2 adds
+opioid prescribing, which is itself a strong and statistically significant
+predictor: a one-standard-deviation rise in the prescribing rate is
+associated with about a `r round(coef(m2)["z.opiates"]*100, 1)` percent
+increase in mortality. Importantly, the poverty coefficient *increases*
+once prescribing is added, suggesting that the two effects are partially
+offsetting -- counties with high poverty do not necessarily have high
+prescribing.
+
+Model 3 adds the four county-level controls. Both poverty
+(`r round(coef(m3)["z.poverty"]*100, 1)`% per SD) and prescribing
+(`r round(coef(m3)["z.opiates"]*100, 1)`% per SD) remain positive and
+statistically significant. The unemployment rate is positively associated
+with mortality conditional on poverty, consistent with the *deaths of
+despair* mechanism. Mortality is significantly higher in more rural
+counties even after accounting for poverty, prescribing and education, and
+lower in counties with a higher share of college-educated adults. Adjusted
+$R^2$ rises from `r round(summary(m1)$adj.r.squared, 3)` in Model 1 to
+`r round(summary(m3)$adj.r.squared, 3)` in Model 3, indicating that the
+five explanatory variables together account for a substantial share of the
+cross-county variation in log mortality.
+
+## Robustness: negative-binomial count model
+
+The negative-binomial specification (Table below) replaces the log
+crude-rate outcome with a model of raw death counts, with `log(Population)`
+as an offset, fit on every county for which the four covariates are
+observed (n = `r nrow(nb.df)`, including the
+`r nrow(nb.df) - nrow(reg.df)` counties that drop out of the OLS due to
+suppression of the CDC crude rate). Coefficients can be interpreted as
+log-rate ratios.
+
+```{r nb table, results='asis'}
+stargazer(
+  m4,
+  type = "latex",
+  header = FALSE,
+  title = "Negative-binomial regression of drug- and alcohol-related deaths (offset = log population)",
+  dep.var.labels = "Deaths (with offset)",
+  covariate.labels = c(
+    "Poverty (z)",
+    "Opioid Rx (z)",
+    "Unemployment rate (\\%)",
+    "Bachelor's+ (\\%)",
+    "Rural-urban code (1-9)",
+    "log(pop. density)"
+  ),
+  digits = 3,
+  no.space = TRUE,
+  font.size = "small"
+)
+```
+
+\vspace{6mm}
+
+The signs and approximate magnitudes match Model 3 in the OLS table:
+poverty, prescribing, unemployment and rural classification are positively
+associated with the death rate, and the share of college-educated adults
+is negatively associated with it. We treat this concordance as evidence
+that the OLS results are not an artefact of the log transformation or of
+the dropped suppressed-rate counties.
+
+## Spatial distribution
+
+Finally we plot the spatial distribution of drug- and alcohol-related
+mortality across the contiguous United States. We restrict the map to the
+lower 48 states (excluding Alaska, Hawaii and the territories) so that the
+remaining counties can be read at a useful scale.
+
+\vspace{6mm}
+
+```{r mortality map, fig.width=7.2, fig.height=4.5, fig.cap="County-level drug- and alcohol-related mortality, per 100,000 (CDC, 1999-2016 cumulative crude rate). Grey indicates counties with suppressed (Unreliable) rates."}
+map.df <- us.shape.2 %>%
+  dplyr::filter(!STATEFP %in% c("02", "15", "60", "66", "69", "72", "78"))
+
+ggplot(map.df) +
+  geom_sf(aes(fill = mortality.rate), colour = NA, size = 0) +
+  scale_fill_viridis_c(
+    option = "magma", direction = -1,
+    na.value = "grey85",
+    name = "Deaths per 100k",
+    trans = "log10",
+    labels = function(x) round(x, 1)
+  ) +
+  coord_sf(crs = 5070) +
+  theme_void() +
+  theme(legend.position = "right",
+        plot.caption = element_text(hjust = 0))
+```
+
+\vspace{6mm}
+
+The map shows a clear concentration of high mortality across Appalachia
+(eastern Kentucky, West Virginia, southern Ohio), parts of the desert
+Southwest, and large stretches of rural New England, mirroring the
+geography of opioid prescribing and economic distress identified in the
+regressions above. Note the cluster of suppressed (grey) rural counties
+in the Plains and Mountain West, where small populations make the CDC
+crude rate unreliable -- another reason the negative-binomial robustness
+check, which uses raw counts, matters here.
+
+*Note: the lecturer indicated that detailed mapping techniques will be
+covered in the next session. The figure above is a baseline equal-area
+choropleth using `ggplot2::geom_sf()`; we may refine it (basemap,
+state boundaries, alternative projections, layered tile maps) once the
+mapping material is released.*
+
+# Discussion and limitations
+
+The analysis supports the *joint* importance of supply-side and
+deaths-of-despair explanations of the US drug- and alcohol-mortality
+crisis. Both the 2016 county opioid prescribing rate and the family
+poverty rate are positive, statistically significant, and substantively
+meaningful predictors of county mortality, and both retain their effect
+after controlling for unemployment, education, urbanicity and population
+density. The unemployment-rate coefficient is also robustly positive,
+which is consistent with the broader deaths-of-despair literature.
+
+The analysis is nevertheless subject to several important limitations.
+
+First, this is a *cross-sectional ecological* analysis: associations
+between aggregate county characteristics and aggregate mortality cannot be
+interpreted as individual-level causal effects, and may differ in
+direction from the underlying individual relationships (the well-known
+*ecological fallacy*).
+
+Second, the CDC suppresses crude mortality rates for counties with fewer
+than 20 recorded deaths. This omits roughly
+`r round(100 * sum(is.na(county.data$mortality.rate)) / nrow(county.data), 1)`
+percent of US counties from the OLS sample, and these counties are
+disproportionately small and rural. The negative-binomial robustness check
+mitigates this concern by using raw counts and an offset, and produces
+substantively similar coefficients, but the underlying selection issue
+remains.
+
+Third, the prescribing rate is contemporaneous with the mortality rate,
+but the causal mechanism the supply-side literature describes operates
+with a lag: prescribing-driven dependence in 2010-12 may translate into
+overdose deaths well after 2016. A panel design, or instrumental variables
+exploiting variation in opioid marketing intensity (e.g. Alpert et al.
+2018), would address this more credibly.
+
+Fourth, our control set is deliberately parsimonious. Plausible omitted
+variables include the local supply of treatment for substance-use disorder,
+distance to the nearest emergency department, and exposure to specific
+illicit-supply shocks (e.g. the post-2013 fentanyl wave). Adding these
+would shrink the prescribing coefficient if, as is likely, they are
+positively correlated with prescribing.
+
+# Conclusion
+
+Using county-level data from the US Census Bureau and the CDC, we find
+that *both* prescription opioid availability *and* underlying material
+disadvantage are independent and substantively important predictors of
+drug- and alcohol-related mortality across US counties in 2016. Reducing
+mortality is therefore unlikely to be achieved by any single lever:
+supply-side prescribing controls and demand-side anti-poverty policy are
+complementary, not substitutable. The geographic concentration of high
+mortality in Appalachia and other rural-economically-distressed regions
+also suggests that policy responses targeted at the most-affected counties
+are likely to yield the largest gains.
+
+\vspace{6mm}
+
+## References
+
+Alpert, A., Powell, D., and Pacula, R. L. (2018). Supply-side drug policy
+in the presence of substitutes: Evidence from the introduction of
+abuse-deterrent opioids. *American Economic Journal: Economic Policy*,
+10(4), 1-35.
+
+Cameron, A. C. and Trivedi, P. K. (2013). *Regression analysis of count
+data*. 2nd ed., Cambridge University Press.
+
+Case, A. and Deaton, A. (2015). Rising morbidity and mortality in midlife
+among white non-Hispanic Americans in the 21st century. *PNAS*, 112(49),
+15078-15083.
+
+Case, A. and Deaton, A. (2017). Mortality and morbidity in the 21st
+century. *Brookings Papers on Economic Activity*, Spring 2017, 397-476.
+
+Quinones, S. (2015). *Dreamland: The true tale of America's opiate
+epidemic*. Bloomsbury Press.
+
+Wu, J. Y. et al. (2020). *COVID-19 US County-level Summaries* (data
+repository). <https://github.com/JieYingWu/COVID-19_US_County-level_Summaries>

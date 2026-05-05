@@ -59,15 +59,10 @@ Two complementary literatures motivate the analysis. The first, often called
 the *deaths of despair* hypothesis (Case and Deaton 2015, 2017), argues that
 declining economic opportunity in non-urban America has produced excess
 mortality from suicide, alcohol, and drug overdose among working-age adults.
-On this account, county-level poverty acts as a proxy for the structural
-disadvantage that drives use of, and harm from, drugs and alcohol. We
-therefore expect poverty to be positively associated with drug- and
-alcohol-related mortality.
+Monnat 2019's findings support this argument by highlighting an association between economic distress and mortality during this time period, thus we can use county-level poverty acts as a proxy for the structural disadvantage that drives use of, and harm from, drugs and alcohol. We therefore expect poverty to be positively associated with drug- and alcohol-related mortality. 
 
-The second is a *supply-side* argument: liberal opioid prescribing, especially
-in the late 1990s and 2000s, created a population of dependent users who
-later transitioned to illicit opioids when prescription supply tightened
-(Quinones 2015; Alpert et al. 2018). On this account, the prescribing rate
+
+The second is a *supply-side* argument: liberal opioid prescribing conditions on the healthcare end (Owens 2020), especially in the late 1990s and 2000s, created a population of dependent users who later transitioned to illicit opioids when prescription supply tightened(Quinones 2015; Alpert et al. 2018). On this account, the prescribing rate
 itself is a leading indicator of overdose mortality, independent of underlying
 poverty. We therefore expect prescribing rates to be positively associated
 with drug and alcohol mortality, and to remain so after controlling for
@@ -743,3 +738,9 @@ epidemic*. Bloomsbury Press.
 
 Wu, J. Y. et al. (2020). *COVID-19 US County-level Summaries* (data
 repository). <https://github.com/JieYingWu/COVID-19_US_County-level_Summaries>
+
+Shannon M Monnat.(2019) The contributions of socioeconomic and opioid supply factors to us drug mortality
+rates: Urban-rural and within-rural differences. Journal of rural studies, 68:319–335
+
+Pamela L Owens, Audrey J Weiss, Marguerite L Barrett, and Lawrence D Reid. (2020) Social determinants of
+health and county population rates of opioid-related inpatient stays and emergency department visits.

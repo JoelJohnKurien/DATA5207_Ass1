@@ -13,6 +13,7 @@ output:
     df_print: paged
 header-includes:
 - \usepackage{caption}
+- \usepackage{adjustbox}
 - \captionsetup[figure]{font=scriptsize}
 urlcolor: blue
 ---
@@ -610,7 +611,7 @@ log-rate ratios.
 
 ```{r nb table, results='asis'}
 stargazer(
-  m4,
+  m4[1],
   type = "latex",
   header = FALSE,
   title = "Negative-binomial regression of drug- and alcohol-related deaths (offset = log population)",
@@ -625,7 +626,8 @@ stargazer(
   ),
   digits = 3,
   no.space = TRUE,
-  font.size = "small"
+  font.size = "footnotesize",  # try "scriptsize" if still too wide
+  column.sep.width = "-10pt"   # tighten column spacing
 )
 ```
 

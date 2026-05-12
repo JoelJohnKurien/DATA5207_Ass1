@@ -1,7 +1,7 @@
 ---
 title: "The US opiate crisis: poverty, prescription rates and drug-related mortality at the county level"
 subtitle: "DATA5207 Group Project 2"
-author: "Group [N] -- members:"
+author: "Group [32] -- members: 500497375, 540666979, 520455623"
 date: "`r format(Sys.Date(), '%B %Y')`"
 output:
   pdf_document:
@@ -18,7 +18,7 @@ header-includes:
 urlcolor: blue
 ---
 
-```{r setup, include=FALSE}
+```{r setup, echo=FALSE}
 knitr::opts_chunk$set(
   echo = TRUE, message = FALSE, warning = FALSE,
   fig.width = 6, fig.height = 4, fig.align = "center"
@@ -366,7 +366,7 @@ variable in the OLS models below.
 
 \vspace{6mm}
 
-```{r distribution of mortality, fig.width=7, fig.height=3.5, fig.cap="Distribution of drug- and alcohol-related mortality (raw and log scale)"}
+```{r distribution of mortality, fig.width=7, fig.height=3.5, fig.cap="Distribution of drug- and alcohol-related mortality (raw and log scale)", echo=FALSE}
 library(ggplot2)
 library(scales)
 
@@ -394,14 +394,15 @@ scale, supporting our choice of `log(mortality.rate)` as the OLS outcome.
 
 \vspace{6mm}
 
-```{r bivariate scatter, fig.width=7, fig.height=3.2, fig.cap="Drug/alcohol mortality vs poverty and opioid prescribing rate (log scale)"}
+```{r bivariate scatter, fig.width=7, fig.height=3.2, fig.cap="Drug/alcohol mortality vs poverty and opioid prescribing rate (log scale)", echo=FALSE}
 s1 <- ggplot(analysis.df,
              aes(x = below.poverty.rate, y = mortality.rate)) +
   geom_point(alpha = 0.25, size = 0.8) +
   geom_smooth(method = "loess", se = FALSE, colour = "firebrick") +
   scale_y_log10() +
   labs(x = "Families below poverty (%)",
-       y = "Mortality (per 100k, log)") +
+       y = "Mortality (per 100k, log)",
+       title = "Mortality Rate\nvs Poverty Rate\n(Residuals)") +
   theme_minimal()
 
 s2 <- ggplot(analysis.df,
@@ -410,7 +411,8 @@ s2 <- ggplot(analysis.df,
   geom_smooth(method = "loess", se = FALSE, colour = "firebrick") +
   scale_y_log10() +
   labs(x = "Opioid Rx per 100 persons (2016)",
-       y = "Mortality (per 100k, log)") +
+       y = "Mortality (per 100k, log)",
+       title = "Mortality Rate\nvs Opioid Prescription\n(per 100 people) Rate\n(Residuals)") +
   theme_minimal()
 
 gridExtra::grid.arrange(s1, s2, nrow=1, ncol = 2)
@@ -419,14 +421,15 @@ gridExtra::grid.arrange(s1, s2, nrow=1, ncol = 2)
 
 When we try to see the relationship between the mortality rate due to drug addiction to unemployment rate of each region and we try to see if most of the deaths are in bachelors or not. The scatterplots shown below show that there is a non-linear relationship between unemployment rates and drug deaths, with the most concentration of drug death rates in regions with about 3-5% unemployment rates and then it starts to become more random. We do see a much more random trend in comparing the percentage of bachelors to deaths due to drugs, here we find that most regions with about 20% bachelor concetration has a higher mortality rate but it decreases as the bachelor concentration increases, which introduces an intriguing question of whether drug deaths are more involved in married individuals or bachelors.
 
-```{r, fig.width=7, fig.height=3.2, fig.cap="Drug/alcohol mortality vs unemployment rate (log scale)"}
+```{r, fig.width=7, fig.height=3.2, fig.cap="Drug/alcohol mortality vs unemployment rate (log scale)", echo=FALSE}
 s3 <- ggplot(analysis.df,
              aes(x = unemployment.rate, y = mortality.rate)) +
   geom_point(alpha = 0.25, size = 0.8) +
   geom_smooth(method = "loess", se = FALSE, colour = "firebrick") +
   scale_y_log10() +
   labs(x = "Unemployment Rate (2016)",
-       y = "Mortality (per 100k, log)") +
+       y = "Mortality (per 100k, log)",
+       title = "Mortality Rate\nvs Unemployment Rate\n(Residuals)") +
   theme_minimal()
 s4 <- ggplot(analysis.df,
              aes(x = pct.bachelors, y = mortality.rate)) +
@@ -434,7 +437,8 @@ s4 <- ggplot(analysis.df,
   geom_smooth(method = "loess", se = FALSE, colour = "firebrick") +
   scale_y_log10() +
   labs(x = "Percent of bachelors (2016)",
-       y = "Mortality (per 100k, log)") +
+       y = "Mortality (per 100k, log)",
+       title = "Mortality Rate\nvs Bachelor Degree Rate\n(Residuals)") +
   theme_minimal()
 
 gridExtra::grid.arrange(s3, s4, nrow=1, ncol = 2)
@@ -446,7 +450,7 @@ variables (computed pairwise to handle missingness in the controls):
 
 \vspace{6mm}
 
-```{r correlation matrix}
+```{r correlation matrix, echo=FALSE}
 cor.mat <- analysis.df %>%
   dplyr::transmute(
     log.mortality     = log(mortality.rate),
@@ -504,7 +508,7 @@ the headline model so that interpretation remains transparent.
 
 # Results
 
-```{r build models}
+```{r build models, echo=FALSE}
 library(MASS)
 
 reg.df <- county.data %>%
@@ -549,7 +553,7 @@ m4 <- MASS::glm.nb(
 
 ## Multivariate regression
 
-```{r regression table, results='asis'}
+```{r regression table, results='asis', echo=FALSE}
 library(stargazer)
 
 stargazer(
@@ -609,7 +613,7 @@ observed (n = `r nrow(nb.df)`, including the
 suppression of the CDC crude rate). Coefficients can be interpreted as
 log-rate ratios.
 
-```{r nb table, results='asis'}
+```{r nb table, results='asis', echo=FALSE}
 stargazer(
   m4[1],
   type = "latex",
@@ -649,7 +653,7 @@ remaining counties can be read at a useful scale.
 
 \vspace{6mm}
 
-```{r mortality map, fig.width=7.2, fig.height=4.5, fig.cap="County-level drug- and alcohol-related mortality, per 100,000 (CDC, 1999-2016 cumulative crude rate). Grey indicates counties with suppressed (Unreliable) rates."}
+```{r mortality map, fig.width=7.2, fig.height=4.5, fig.cap="County-level drug- and alcohol-related mortality, per 100,000 (CDC, 1999-2016 cumulative crude rate). Grey indicates counties with suppressed (Unreliable) rates.", echo=FALSE}
 map.df <- us.shape.2 %>%
   dplyr::filter(!STATEFP %in% c("02", "15", "60", "66", "69", "72", "78"))
 
@@ -664,11 +668,13 @@ ggplot(map.df) +
   ) +
   coord_sf(crs = 5070) +
   theme_void() +
+  labs(title = "Rates of Death throughout the US (per 100,000 people)") + 
   theme(legend.position = "right",
-        plot.caption = element_text(hjust = 0))
+        plot.caption = element_text(hjust = 0),
+        plot.title = element_text(hjust = 0.3))
 ```
 
-```{r poverty map, fig.width=7.2, fig.height=4.5, fig.cap="County-level Poverty Rates. Grey indicates counties with suppressed (Unreliable) rates."}
+```{r poverty map, fig.width=7.2, fig.height=4.5, fig.cap="County-level Poverty Rates. Grey indicates counties with suppressed (Unreliable) rates.", echo=FALSE}
 ggplot(map.df) +
   geom_sf(aes(fill = below.poverty.rate), colour = NA, size = 0) +
   scale_fill_gradient(
@@ -681,9 +687,10 @@ ggplot(map.df) +
   ) +
   coord_sf(crs = 5070) +
   theme_void() +
-  theme(
-    legend.position = "right",
-    plot.caption = element_text(hjust = 0)
+  labs(title = "Rates of Death throughout the US (per 100,000 people)") + 
+  theme(legend.position = "right",
+        plot.caption = element_text(hjust = 0),
+        plot.title = element_text(hjust = 0.4)
   )
 ```
 
